@@ -81,7 +81,7 @@ public class MsgEncoder {
      */
     private void HEART_BEAT_Encode(StringBuilder sb, QyMsg qyMsg, ArrayList<byte[]> list) {
         sb.setCharAt(1, (char) MsgTransfer.DATA_TYPE_2_CHAR(DataType.STRING));
-        sb.append(MsgTransfer.BOOLEAN_2_SEGMENTATION(false));
+        sb.append((char) MsgTransfer.BOOLEAN_2_SEGMENTATION(false));
         byte[] body = qyMsg.getFrom().getBytes(StandardCharsets.UTF_8);
         sb.append(transfer.getLength(body));
         byte[] header = sb.toString().getBytes(StandardCharsets.UTF_8);
@@ -139,12 +139,12 @@ public class MsgEncoder {
     private void OUT_OF_LENGTH_MSG_Encode(byte[] body, StringBuilder sb, ArrayList<byte[]> list) {
         ArrayList<byte[]> bodyList = ArrayUtil.checkArrayLength(body, transfer.BODY_LENGTH_MAX);
         if (bodyList.size() == 1) {
-            sb.append(MsgTransfer.BOOLEAN_2_SEGMENTATION(false));
+            sb.append((char) MsgTransfer.BOOLEAN_2_SEGMENTATION(false));
             sb.append(transfer.getLength(body));
             byte[] header = sb.toString().getBytes(StandardCharsets.UTF_8);
             list.add(ArrayUtil.addAll(header, body));
         } else {
-            sb.append(MsgTransfer.BOOLEAN_2_SEGMENTATION(true));
+            sb.append((char) MsgTransfer.BOOLEAN_2_SEGMENTATION(true));
             String part_trade_id = RandomStringUtil.random(PARTITION_ID_LENGTH, MsgTransfer.DICT);
             for (int i = 1; i <= bodyList.size(); i++) {
                 StringBuilder builder = new StringBuilder(sb);
