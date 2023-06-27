@@ -1,5 +1,7 @@
 package top.yqingyu.qymsg.exception;
 
+import top.yqingyu.common.utils.StringUtil;
+
 /**
  * QyMsg 的部分异常
  *
@@ -18,8 +20,8 @@ public class IllegalQyMsgException extends RuntimeException {
         super(message);
     }
 
-    public IllegalQyMsgException(String message, Throwable cause) {
-        super(message, cause);
+    public IllegalQyMsgException(Throwable cause, String message, Object... o) {
+        super(StringUtil.fillBrace(message, o), cause);
     }
 
     public IllegalQyMsgException(Throwable cause) {

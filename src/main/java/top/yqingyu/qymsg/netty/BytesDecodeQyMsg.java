@@ -9,13 +9,14 @@ import org.slf4j.LoggerFactory;
 import top.yqingyu.common.qydata.ConcurrentQyMap;
 import top.yqingyu.common.utils.ArrayUtil;
 import top.yqingyu.common.utils.IoUtil;
-import top.yqingyu.common.utils.StringUtil;
+
 import top.yqingyu.qymsg.*;
-import top.yqingyu.qymsg.exception.IllegalQyMsgException;
+
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Objects;
 
 import static top.yqingyu.qymsg.Dict.*;
 
@@ -27,74 +28,49 @@ public class BytesDecodeQyMsg extends ByteToMessageDecoder {
     private static final Logger log = LoggerFactory.getLogger(BytesDecodeQyMsg.class);
     private final ConcurrentQyMap<Integer, ConcurrentQyMap<String, Object>> DECODE_TEMP_CACHE = new ConcurrentQyMap<>();
     private final MsgConnector connector;
-    private final MsgTransfer transfer;
+    private final MsgDecoder decoder;
 
     public BytesDecodeQyMsg(MsgTransfer transfer) {
         connector = transfer.connector;
-        this.transfer = transfer;
+        decoder = new MsgDecoder(transfer);
     }
 
 
     @Override
     protected void decode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) throws Exception {
         int ctxHashCode = ctx.hashCode();
-        String header = null;
-        String segmentationInfo = null;
+        byte[] header = null;
+        byte[] segmentationInfo = null;
         byte[] readBytes;
         byte[] segBody = null;
         byte[] singleBody = null;
         ConcurrentQyMap<String, Object> ctxData = DECODE_TEMP_CACHE.get(ctxHashCode);
         if (ctxData != null) {
-            header = ctxData.get("header", String.class);
-            segmentationInfo = ctxData.get("segmentationInfo", String.class);
+            header = ctxData.get("header", byte[].class);
+            segmentationInfo = ctxData.get("segmentationInfo", byte[].class);
             segBody = ctxData.get("segBody", byte[].class);
             singleBody = ctxData.get("singleBody", byte[].class);
         }
 
         if (header == null) {
-            readBytes = readBytes(in, HEADER_LENGTH);
-            header = new String(readBytes, StandardCharsets.UTF_8);
+            header = readBytes(in, HEADER_LENGTH);
         }
-        if (StringUtil.isNotBlank(header) && header.length() != HEADER_LENGTH) {
-            throw new IllegalQyMsgException("消息头长度非法 消息头为：" + header);
-        }
-        char $0 = header.charAt(MSG_TYPE_IDX);//msg  type
-        char $1 = header.charAt(DATA_TYPE_IDX);//data type
-        char $2 = header.charAt(SEGMENTATION_IDX);//是否分片
-        String $3 = header.substring(MSG_LENGTH_IDX_START, MSG_LENGTH_IDX_END);     //后五位
 
         boolean segmentation;
         try {
-            segmentation = MsgTransfer.SEGMENTATION_2_BOOLEAN($2);
+            segmentation = MsgTransfer.SEGMENTATION_2_BOOLEAN(header[SEGMENTATION_IDX]);
         } catch (Exception e) {
-            throw new IllegalQyMsgException("非法分片字符: " + header, e);
+            throw decoder.handleException(e, "非法分片标识", header);
         }
 
         if (segmentation) {
-            MsgType msgType;
-            try {
-                msgType = MsgTransfer.CHAR_2_MSG_TYPE($0);
-            } catch (Exception e) {
-                throw new IllegalQyMsgException("非法的消息类型: " + header, e);
-            }
-            DataType dataType;
-            try {
-                dataType = MsgTransfer.CHAR_2_DATA_TYPE($1);
-            } catch (Exception e) {
-                throw new IllegalQyMsgException("非法的数据类型: " + header, e);
-            }
-
-            QyMsg parse = new QyMsg(msgType, dataType);
-            parse.setSegmentation(true);
+            QyMsg parse = decoder.createMsg(header);
 
             if (segmentationInfo == null) {
-                readBytes = readBytes(in, SEGMENTATION_INFO_LENGTH);
-                segmentationInfo = new String(readBytes, StandardCharsets.UTF_8);
+                segmentationInfo = readBytes(in, SEGMENTATION_INFO_LENGTH);
             }
-            parse.setPartition_id(segmentationInfo.substring(PARTITION_ID_IDX_START, PARTITION_ID_IDX_END));
-            parse.setNumerator(Integer.parseInt(segmentationInfo.substring(NUMERATOR_IDX_START, NUMERATOR_IDX_END), transfer.MSG_LENGTH_RADIX));
-            parse.setDenominator(Integer.parseInt(segmentationInfo.substring(DENOMINATOR_IDX_START, DENOMINATOR_IDX_END), transfer.MSG_LENGTH_RADIX));
-            int bodySize = Integer.parseInt($3, transfer.MSG_LENGTH_RADIX);
+            decoder.setSegmentInfo(parse, segmentationInfo);
+            int bodySize = decoder.getMsgLength(header);
             int readableSize = in.readableBytes();
             if (segBody == null) {
                 if (readableSize >= bodySize) {
@@ -128,18 +104,16 @@ public class BytesDecodeQyMsg extends ByteToMessageDecoder {
         } else {
             MsgType msgType;
             try {
-                msgType = MsgTransfer.CHAR_2_MSG_TYPE($0);
+                msgType = MsgTransfer.CHAR_2_MSG_TYPE(header[MSG_TYPE_IDX]);
             } catch (Exception e) {
-                throw new IllegalQyMsgException("非法的消息类型: " + header, e);
+                throw decoder.handleException(e, "非法的消息标识", header);
             }
             QyMsg qyMsg;
             switch (msgType) {
-                case AC -> qyMsg = AC_Disassembly($3, in, ctxHashCode, ctxData, header, singleBody);
-                case HEART_BEAT ->
-                        qyMsg = HEART_BEAT_Disassembly($0, $1, $2, $3, in, ctxHashCode, ctxData, header, singleBody);
-                case ERR_MSG ->
-                        qyMsg = ERR_MSG_Disassembly($0, $1, $2, $3, in, ctxHashCode, ctxData, header, singleBody);
-                default -> qyMsg = NORM_MSG_Disassembly($0, $1, $3, in, ctxHashCode, ctxData, header, singleBody);
+                case AC -> qyMsg = AC_Disassembly(in, ctxHashCode, ctxData, header, singleBody);
+                case HEART_BEAT -> qyMsg = HEART_BEAT_Disassembly(in, ctxHashCode, ctxData, header, singleBody);
+                case ERR_MSG -> qyMsg = ERR_MSG_Disassembly(in, ctxHashCode, ctxData, header, singleBody);
+                default -> qyMsg = NORM_MSG_Disassembly(in, ctxHashCode, ctxData, header, singleBody);
             }
             if (qyMsg != null) {
                 DECODE_TEMP_CACHE.remove(ctxHashCode);
@@ -154,12 +128,12 @@ public class BytesDecodeQyMsg extends ByteToMessageDecoder {
         return readBytes;
     }
 
-    private byte[] readBytes2(String msg_length, ByteBuf in, int ctxHashCode, ConcurrentQyMap<String, Object> ctxInfo, String header, byte[] body) {
-        int bodySize = Integer.parseInt(msg_length, transfer.MSG_LENGTH_RADIX);
+    private byte[] readBytes2(ByteBuf in, int ctxHashCode, ConcurrentQyMap<String, Object> ctxInfo, byte[] header, byte[] body) {
+        int bodySize = decoder.getMsgLength(header);
         int readableSize = in.readableBytes();
         if (body == null) {
             if (readableSize >= bodySize) {
-                return readBytes(in, Integer.parseInt(msg_length, transfer.MSG_LENGTH_RADIX));
+                return readBytes(in, bodySize);
             } else {
                 ctxInfo = new ConcurrentQyMap<>();
                 updateSingleCtxInfo(ctxHashCode, ctxInfo, header, readBytes(in, readableSize));
@@ -178,14 +152,14 @@ public class BytesDecodeQyMsg extends ByteToMessageDecoder {
 
     }
 
-    private void updateSegCtxInfo(int ctxHashCode, ConcurrentQyMap<String, Object> ctxInfo, String header, String segmentationInfo, byte[] body) {
+    private void updateSegCtxInfo(int ctxHashCode, ConcurrentQyMap<String, Object> ctxInfo, byte[] header, byte[] segmentationInfo, byte[] body) {
         DECODE_TEMP_CACHE.put(ctxHashCode, ctxInfo);
         ctxInfo.put("header", header);
         ctxInfo.put("segmentationInfo", segmentationInfo);
         ctxInfo.put("segBody", body);
     }
 
-    private void updateSingleCtxInfo(int ctxHashCode, ConcurrentQyMap<String, Object> ctxInfo, String header, byte[] body) {
+    private void updateSingleCtxInfo(int ctxHashCode, ConcurrentQyMap<String, Object> ctxInfo, byte[] header, byte[] body) {
         DECODE_TEMP_CACHE.put(ctxHashCode, ctxInfo);
         ctxInfo.put("header", header);
         ctxInfo.put("singleBody", body);
@@ -195,41 +169,24 @@ public class BytesDecodeQyMsg extends ByteToMessageDecoder {
     /**
      * 认证消息解析
      *
-     * @param msg_length 消息长度
-     * @param in         流
+     * @param in 流
      */
-    private QyMsg AC_Disassembly(String msg_length, ByteBuf in, int ctxHashCode, ConcurrentQyMap<String, Object> ctxInfo, String header, byte[] body) {
-        byte[] bytes = readBytes2(msg_length, in, ctxHashCode, ctxInfo, header, body);
+    private QyMsg AC_Disassembly(ByteBuf in, int ctxHashCode, ConcurrentQyMap<String, Object> ctxInfo, byte[] header, byte[] body) throws IOException, ClassNotFoundException {
+        byte[] bytes = readBytes2(in, ctxHashCode, ctxInfo, header, body);
         if (bytes == null) return null;
+        QyMsg qyMsg = decoder.createMsg(header);
+        if (Objects.requireNonNull(qyMsg.getDataType()) == DataType.OBJECT) {
+            return IoUtil.deserializationObj(bytes, QyMsg.class);
+        }
         return JSON.parseObject(bytes, QyMsg.class);
     }
 
     /**
      * 心跳消息组装
      */
-    private QyMsg HEART_BEAT_Disassembly(char msg_type, char data_type, char segmentationC, String msg_length, ByteBuf in, int ctxHashCode, ConcurrentQyMap<String, Object> ctxInfo, String header, byte[] body) {
-        MsgType msgType;
-        try {
-            msgType = MsgTransfer.CHAR_2_MSG_TYPE(msg_type);
-        } catch (Exception e) {
-            throw new IllegalQyMsgException("非法的消息类型: " + header, e);
-        }
-        DataType dataType;
-        try {
-            dataType = MsgTransfer.CHAR_2_DATA_TYPE(data_type);
-        } catch (Exception e) {
-            throw new IllegalQyMsgException("非法的数据类型: " + header, e);
-        }
-        boolean segmentation;
-        try {
-            segmentation = MsgTransfer.SEGMENTATION_2_BOOLEAN(segmentationC);
-        } catch (Exception e) {
-            throw new IllegalQyMsgException("非法分片字符: " + header, e);
-        }
-
-        QyMsg qyMsg = new QyMsg(msgType, dataType);
-        qyMsg.setSegmentation(segmentation);
-        byte[] bytes = readBytes2(msg_length, in, ctxHashCode, ctxInfo, header, body);
+    private QyMsg HEART_BEAT_Disassembly(ByteBuf in, int ctxHashCode, ConcurrentQyMap<String, Object> ctxInfo, byte[] header, byte[] body) {
+        QyMsg qyMsg = decoder.createMsg(header);
+        byte[] bytes = readBytes2(in, ctxHashCode, ctxInfo, header, body);
         if (bytes == null) return null;
         qyMsg.setFrom(new String(bytes, StandardCharsets.UTF_8));
         return qyMsg;
@@ -238,41 +195,29 @@ public class BytesDecodeQyMsg extends ByteToMessageDecoder {
     /**
      * 常规消息组装
      */
-    private QyMsg NORM_MSG_Disassembly(char msg_type, char data_type, String msg_length, ByteBuf in, int ctxHashCode, ConcurrentQyMap<String, Object> ctxInfo, String header, byte[] body) throws IOException, ClassNotFoundException {
-        MsgType msgType;
-        try {
-            msgType = MsgTransfer.CHAR_2_MSG_TYPE(msg_type);
-        } catch (Exception e) {
-            throw new IllegalQyMsgException("非法的消息类型: " + header, e);
-        }
-        DataType dataType;
-        try {
-            dataType = MsgTransfer.CHAR_2_DATA_TYPE(data_type);
-        } catch (Exception e) {
-            throw new IllegalQyMsgException("非法的数据类型: " + header, e);
-        }
-        switch (dataType) {
+    private QyMsg NORM_MSG_Disassembly(ByteBuf in, int ctxHashCode, ConcurrentQyMap<String, Object> ctxInfo, byte[] header, byte[] body) throws IOException, ClassNotFoundException {
+        QyMsg qyMsg = decoder.createMsg(header);
+        switch (qyMsg.getDataType()) {
             case STRING -> {
-                byte[] bytes = readBytes2(msg_length, in, ctxHashCode, ctxInfo, header, body);
+                byte[] bytes = readBytes2(in, ctxHashCode, ctxInfo, header, body);
                 if (bytes == null) return null;
                 String s = new String(bytes, StandardCharsets.UTF_8);
                 String from = s.substring(0, CLIENT_ID_LENGTH);
                 String msg = s.substring(CLIENT_ID_LENGTH);
-                QyMsg qyMsg = new QyMsg(msgType, dataType);
                 qyMsg.setFrom(from);
                 qyMsg.putMsg(msg);
                 return qyMsg;
             }
             case OBJECT -> {
-                byte[] bytes = readBytes2(msg_length, in, ctxHashCode, ctxInfo, header, body);
+                byte[] bytes = readBytes2(in, ctxHashCode, ctxInfo, header, body);
                 if (bytes == null) return null;
                 return IoUtil.deserializationObj(bytes, QyMsg.class);
             }
             case STREAM -> {
-                return streamDeal(msg_type, data_type, msg_length, in, ctxHashCode, ctxInfo, header, body);
+                return streamDeal(in, ctxHashCode, ctxInfo, header, body);
             }
             default -> { //JSON FILE
-                byte[] bytes = readBytes2(msg_length, in, ctxHashCode, ctxInfo, header, body);
+                byte[] bytes = readBytes2(in, ctxHashCode, ctxInfo, header, body);
                 if (bytes == null) return null;
                 return JSON.parseObject(bytes, QyMsg.class);
             }
@@ -282,52 +227,37 @@ public class BytesDecodeQyMsg extends ByteToMessageDecoder {
     /**
      * 异常消息组装
      */
-    private QyMsg ERR_MSG_Disassembly(char msg_type, char data_type, char segmentation, String msg_length, ByteBuf in, int ctxHashCode, ConcurrentQyMap<String, Object> ctxInfo, String header, byte[] body) {
-        DataType dataType;
-        try {
-            dataType = MsgTransfer.CHAR_2_DATA_TYPE(data_type);
-        } catch (Exception e) {
-            throw new IllegalQyMsgException("非法的数据类型: " + header, e);
-        }
-        if (DataType.JSON.equals(dataType)) {
-            byte[] bytes = readBytes2(msg_length, in, ctxHashCode, ctxInfo, header, body);
+    private QyMsg ERR_MSG_Disassembly(ByteBuf in, int ctxHashCode, ConcurrentQyMap<String, Object> ctxInfo, byte[] header, byte[] body) {
+        QyMsg qyMsg = decoder.createMsg(header);
+        if (DataType.JSON.equals(qyMsg.getDataType())) {
+            byte[] bytes = readBytes2(in, ctxHashCode, ctxInfo, header, body);
             if (bytes == null) return null;
             return JSON.parseObject(bytes, QyMsg.class);
         } else {
-            return streamDeal(msg_type, data_type, msg_length, in, ctxHashCode, ctxInfo, header, body);
+            return streamDeal(in, ctxHashCode, ctxInfo, header, body);
         }
     }
 
     /**
+     * 流类型数据处理
+     *
      * @author YYJ
-     * @description 流类型数据处理
      */
-    private QyMsg streamDeal(char msg_type, char data_type, String msg_length, ByteBuf in, int ctxHashCode, ConcurrentQyMap<String, Object> ctxInfo, String header, byte[] body) {
-        MsgType msgType;
-        try {
-            msgType = MsgTransfer.CHAR_2_MSG_TYPE(msg_type);
-        } catch (Exception e) {
-            throw new IllegalQyMsgException("非法的消息类型: " + header, e);
-        }
-        DataType dataType;
-        try {
-            dataType = MsgTransfer.CHAR_2_DATA_TYPE(data_type);
-        } catch (Exception e) {
-            throw new IllegalQyMsgException("非法的数据类型: " + header, e);
-        }
-        QyMsg qyMsg = new QyMsg(msgType, dataType);
+    private QyMsg streamDeal(ByteBuf in, int ctxHashCode, ConcurrentQyMap<String, Object> ctxInfo, byte[] header, byte[] body) {
+        QyMsg qyMsg = decoder.createMsg(header);
 
-        byte[] bytes = readBytes2(msg_length, in, ctxHashCode, ctxInfo, header, body);
+        byte[] bytes = readBytes2(in, ctxHashCode, ctxInfo, header, body);
         if (bytes == null) return null;
 
         byte[] from = new byte[CLIENT_ID_LENGTH];
         System.arraycopy(bytes, 0, from, 0, CLIENT_ID_LENGTH);
 
-        body = new byte[Integer.parseInt(msg_length, transfer.MSG_LENGTH_RADIX) - CLIENT_ID_LENGTH];
+        body = new byte[decoder.getMsgLength(header) - CLIENT_ID_LENGTH];
         System.arraycopy(bytes, CLIENT_ID_LENGTH, body, 0, CLIENT_ID_LENGTH);
 
         qyMsg.setFrom(new String(from, StandardCharsets.UTF_8));
         qyMsg.putMsg(body);
         return qyMsg;
     }
+
 }

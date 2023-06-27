@@ -45,13 +45,13 @@ public class MsgTransfer {
     public MsgEncoder msgEncoder;
     public MsgDecoder msgDecoder;
 
-    private static Hashtable<DataType, Character> DATA_TYPE_2_CHAR;
-    private static Hashtable<Character, DataType> CHAR_2_DATA_TYPE;
+    private static Hashtable<DataType, Byte> DATA_TYPE_2_CHAR;
+    private static Hashtable<Byte, DataType> CHAR_2_DATA_TYPE;
 
-    private static Hashtable<MsgType, Character> MSG_TYPE_2_CHAR;
-    private static Hashtable<Character, MsgType> CHAR_2_MSG_TYPE;
-    private static Hashtable<Character, Boolean> SEGMENTATION_2_BOOLEAN;
-    private static Hashtable<Boolean, Character> BOOLEAN_2_SEGMENTATION;
+    private static Hashtable<MsgType, Byte> MSG_TYPE_2_CHAR;
+    private static Hashtable<Byte, MsgType> CHAR_2_MSG_TYPE;
+    private static Hashtable<Byte, Boolean> SEGMENTATION_2_BOOLEAN;
+    private static Hashtable<Boolean, Byte> BOOLEAN_2_SEGMENTATION;
 
 
     protected static final String DICT = "AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz1234567890";
@@ -60,43 +60,41 @@ public class MsgTransfer {
         //消息类型映射
         {
             MSG_TYPE_2_CHAR = new Hashtable<>();
-            MSG_TYPE_2_CHAR.put(MsgType.AC, '#');
-            MSG_TYPE_2_CHAR.put(MsgType.HEART_BEAT, '&');
-            MSG_TYPE_2_CHAR.put(MsgType.NORM_MSG, '%');
-            MSG_TYPE_2_CHAR.put(MsgType.ERR_MSG, '=');
+            MSG_TYPE_2_CHAR.put(MsgType.AC, "#".getBytes(StandardCharsets.UTF_8)[0]);
+            MSG_TYPE_2_CHAR.put(MsgType.HEART_BEAT, "&".getBytes(StandardCharsets.UTF_8)[0]);
+            MSG_TYPE_2_CHAR.put(MsgType.NORM_MSG, "%".getBytes(StandardCharsets.UTF_8)[0]);
+            MSG_TYPE_2_CHAR.put(MsgType.ERR_MSG, "=".getBytes(StandardCharsets.UTF_8)[0]);
 
             CHAR_2_MSG_TYPE = new Hashtable<>();
-            CHAR_2_MSG_TYPE.put('#', MsgType.AC);
-            CHAR_2_MSG_TYPE.put('&', MsgType.HEART_BEAT);
-            CHAR_2_MSG_TYPE.put('%', MsgType.NORM_MSG);
-            CHAR_2_MSG_TYPE.put('=', MsgType.ERR_MSG);
+            MSG_TYPE_2_CHAR.forEach((a, b) -> {
+                CHAR_2_MSG_TYPE.put(b, a);
+            });
 
         }
         //数据类型映射
         {
             DATA_TYPE_2_CHAR = new Hashtable<>();
-            DATA_TYPE_2_CHAR.put(DataType.OBJECT, '=');
-            DATA_TYPE_2_CHAR.put(DataType.JSON, '%');
-            DATA_TYPE_2_CHAR.put(DataType.STRING, '&');
-            DATA_TYPE_2_CHAR.put(DataType.STREAM, '#');
-            DATA_TYPE_2_CHAR.put(DataType.FILE, ']');
+            DATA_TYPE_2_CHAR.put(DataType.OBJECT, "=".getBytes(StandardCharsets.UTF_8)[0]);
+            DATA_TYPE_2_CHAR.put(DataType.JSON, "%".getBytes(StandardCharsets.UTF_8)[0]);
+            DATA_TYPE_2_CHAR.put(DataType.STRING, "&".getBytes(StandardCharsets.UTF_8)[0]);
+            DATA_TYPE_2_CHAR.put(DataType.STREAM, "#".getBytes(StandardCharsets.UTF_8)[0]);
+            DATA_TYPE_2_CHAR.put(DataType.FILE, "]".getBytes(StandardCharsets.UTF_8)[0]);
 
             CHAR_2_DATA_TYPE = new Hashtable<>();
-            CHAR_2_DATA_TYPE.put('=', DataType.OBJECT);
-            CHAR_2_DATA_TYPE.put('%', DataType.JSON);
-            CHAR_2_DATA_TYPE.put('&', DataType.STRING);
-            CHAR_2_DATA_TYPE.put('#', DataType.STREAM);
-            CHAR_2_DATA_TYPE.put(']', DataType.FILE);
+            DATA_TYPE_2_CHAR.forEach((t, b) -> {
+                CHAR_2_DATA_TYPE.put(b, t);
+            });
         }
         //消息分片映射
         {
             SEGMENTATION_2_BOOLEAN = new Hashtable<>();
-            SEGMENTATION_2_BOOLEAN.put('+', true);
-            SEGMENTATION_2_BOOLEAN.put('-', false);
+            SEGMENTATION_2_BOOLEAN.put("+".getBytes(StandardCharsets.UTF_8)[0], true);
+            SEGMENTATION_2_BOOLEAN.put("-".getBytes(StandardCharsets.UTF_8)[0], false);
 
             BOOLEAN_2_SEGMENTATION = new Hashtable<>();
-            BOOLEAN_2_SEGMENTATION.put(true, '+');
-            BOOLEAN_2_SEGMENTATION.put(false, '-');
+            SEGMENTATION_2_BOOLEAN.forEach((t, b) -> {
+                BOOLEAN_2_SEGMENTATION.put(b, t);
+            });
 
         }
     }
@@ -121,28 +119,28 @@ public class MsgTransfer {
         return msgTransfer;
     }
 
-    protected static char DATA_TYPE_2_CHAR(DataType dataType) {
+    protected static byte DATA_TYPE_2_CHAR(DataType dataType) {
         return DATA_TYPE_2_CHAR.get(dataType);
     }
 
-    public static DataType CHAR_2_DATA_TYPE(char c) {
+    public static DataType CHAR_2_DATA_TYPE(byte c) {
         return CHAR_2_DATA_TYPE.get(c);
     }
 
-    protected static char MSG_TYPE_2_CHAR(MsgType msgType) {
+    protected static byte MSG_TYPE_2_CHAR(MsgType msgType) {
         return MSG_TYPE_2_CHAR.get(msgType);
     }
 
-    public static MsgType CHAR_2_MSG_TYPE(char c) {
+    public static MsgType CHAR_2_MSG_TYPE(byte c) {
         return CHAR_2_MSG_TYPE.get(c);
     }
 
-    public static boolean SEGMENTATION_2_BOOLEAN(char c) {
+    public static boolean SEGMENTATION_2_BOOLEAN(byte c) {
 
         return SEGMENTATION_2_BOOLEAN.get(c);
     }
 
-    protected static char BOOLEAN_2_SEGMENTATION(boolean b) {
+    protected static byte BOOLEAN_2_SEGMENTATION(boolean b) {
         return BOOLEAN_2_SEGMENTATION.get(b);
     }
 
