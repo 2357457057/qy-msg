@@ -4,6 +4,7 @@ import com.alibaba.fastjson2.JSON;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import top.yqingyu.common.utils.ArrayUtil;
+import top.yqingyu.common.utils.RadixUtil;
 import top.yqingyu.qymsg.exception.IllegalQyMsgException;
 import top.yqingyu.common.utils.IoUtil;
 
@@ -58,7 +59,7 @@ public class MsgDecoder {
             setSegmentInfo(parse, headerBytes);
             headerBytes = IoUtil.readBytes3(socket, msgLength, runFlag);
             parse.putMsg(headerBytes);
-            log.debug("part msg id: {} the part {} of {}", parse.getPartition_id(), parse.getNumerator(), parse.getDenominator());
+            log.debug("PartMsgId: {} the part {} of {}", parse.getPartition_id(), parse.getNumerator(), parse.getDenominator());
             return connector.merger(parse);
         } else {
             MsgType msgType;
@@ -107,7 +108,7 @@ public class MsgDecoder {
             setSegmentInfo(parse, header);
             header = IoUtil.readBytes(socketChannel, length);
             parse.putMsg(header);
-            log.debug("part msg id: {} the part {} of {}", parse.getPartition_id(), parse.getNumerator(), parse.getDenominator());
+            log.debug("PartMsgId: {} the part {} of {}", parse.getPartition_id(), parse.getNumerator(), parse.getDenominator());
             return connector.merger(parse);
         } else {
             MsgType msgType;
@@ -293,18 +294,18 @@ public class MsgDecoder {
     }
 
     public IllegalQyMsgException handleException(Exception e, String s, byte[] array) {
-        return new IllegalQyMsgException(e, "{} arr:{} str{}", s, Arrays.toString(array), new String(array, StandardCharsets.UTF_8));
+        return new IllegalQyMsgException(e, "{} arr:{} str:{}", s, Arrays.toString(array), new String(array, StandardCharsets.UTF_8));
     }
 
     public int getMsgLength(byte[] array) {
-        return Integer.parseInt(new String(ArrayUtil.subarray(array, MSG_LENGTH_IDX_START, MSG_LENGTH_IDX_END), StandardCharsets.UTF_8), transfer.MSG_LENGTH_RADIX);
+        return RadixUtil.byte2Radix(ArrayUtil.subarray(array, MSG_LENGTH_IDX_START, MSG_LENGTH_IDX_END), transfer.MSG_LENGTH_RADIX);
     }
 
     public void setSegmentInfo(QyMsg msg, byte[] array) {
         String segmentationInfo = new String(array, StandardCharsets.UTF_8);
         msg.setPartition_id(segmentationInfo.substring(PARTITION_ID_IDX_START, PARTITION_ID_IDX_END));
-        msg.setNumerator(Integer.parseInt(segmentationInfo.substring(NUMERATOR_IDX_START, NUMERATOR_IDX_END), transfer.MSG_LENGTH_RADIX));
-        msg.setDenominator(Integer.parseInt(segmentationInfo.substring(DENOMINATOR_IDX_START, DENOMINATOR_IDX_END), transfer.MSG_LENGTH_RADIX));
+        msg.setNumerator(RadixUtil.byte2Radix(ArrayUtil.subarray(array, NUMERATOR_IDX_START, NUMERATOR_IDX_END), transfer.MSG_LENGTH_RADIX));
+        msg.setDenominator(RadixUtil.byte2Radix(ArrayUtil.subarray(array, DENOMINATOR_IDX_START, DENOMINATOR_IDX_END), transfer.MSG_LENGTH_RADIX));
         msg.setSegmentation(true);
     }
 

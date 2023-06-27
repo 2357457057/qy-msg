@@ -76,6 +76,7 @@ public class BytesDecodeQyMsg extends ByteToMessageDecoder {
                 if (readableSize >= bodySize) {
                     readBytes = readBytes(in, bodySize);
                     parse.putMsg(readBytes);
+                    log.debug("PartMsgId: {} the part {} of {}", parse.getPartition_id(), parse.getNumerator(), parse.getDenominator());
                     QyMsg merger = connector.merger(parse);
                     if (merger != null) {
                         DECODE_TEMP_CACHE.remove(ctxHashCode);
@@ -91,6 +92,7 @@ public class BytesDecodeQyMsg extends ByteToMessageDecoder {
                     DECODE_TEMP_CACHE.remove(ctxHashCode);
                     readBytes = ArrayUtil.addAll(segBody, readBytes(in, bodySize));
                     parse.putMsg(readBytes);
+                    log.debug("PartMsgId: {} the part {} of {}", parse.getPartition_id(), parse.getNumerator(), parse.getDenominator());
                     QyMsg merger = connector.merger(parse);
                     if (merger != null) {
                         DECODE_TEMP_CACHE.remove(ctxHashCode);

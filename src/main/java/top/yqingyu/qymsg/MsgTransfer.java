@@ -6,6 +6,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import top.yqingyu.common.utils.ArrayUtil;
 import top.yqingyu.common.utils.IoUtil;
+import top.yqingyu.common.utils.RadixUtil;
 import top.yqingyu.common.utils.StringUtil;
 
 import java.io.IOException;
@@ -149,28 +150,18 @@ public class MsgTransfer {
         byte[] buf = new byte[0];
 
         for (byte[] bytes : bytess) {
-            buf = ArrayUtil.addAll(buf, getLength(bytes).getBytes(StandardCharsets.UTF_8));
+            buf = ArrayUtil.addAll(buf, getLength(bytes));
             buf = ArrayUtil.addAll(buf, bytes);
         }
         //将信息长度与信息组合
         return buf;
     }
 
-    public String getLength(byte[] bytes) {
-        //将信息长度与信息组合
-        return StringUtil.leftPad(Integer.toUnsignedString(bytes.length, MSG_LENGTH_RADIX), BODY_LENGTH_LENGTH, '0');
+    public byte[] getLength(byte[] bytes) {
+        byte[] radixed = RadixUtil.radix2Byte(bytes.length, MSG_LENGTH_RADIX);
+        return ArrayUtil.leftPad(radixed, BODY_LENGTH_LENGTH, RadixUtil.BYTE_DICT[0]);
     }
 
-    public String getLength(long length) {
-        StringBuilder msgLength = new StringBuilder();
-        msgLength.append(Integer.toUnsignedString((int) length, MSG_LENGTH_RADIX));
-        //长度信息不足MSG_LENGTH_LENGTH位按0补充
-        while (msgLength.toString().getBytes(StandardCharsets.UTF_8).length != BODY_LENGTH_LENGTH) {
-            msgLength.insert(0, '0');
-        }
-        //将信息长度与信息组合
-        return msgLength.toString();
-    }
 
     /**
      * @param socketChannel xxx
@@ -345,9 +336,8 @@ public class MsgTransfer {
     }
 
     public byte[] readQyBytes(SocketChannel socketChannel) throws IOException {
-        String len = new String(IoUtil.readBytes(socketChannel, BODY_LENGTH_LENGTH), StandardCharsets.UTF_8);
-
-        return IoUtil.readBytes(socketChannel, Integer.parseInt(len, MSG_LENGTH_RADIX));
+        int i = RadixUtil.byte2Radix(IoUtil.readBytes(socketChannel, BODY_LENGTH_LENGTH), MSG_LENGTH_RADIX);
+        return IoUtil.readBytes(socketChannel, i);
     }
 
 
@@ -370,10 +360,8 @@ public class MsgTransfer {
 
     public byte[] readQyBytes(Socket socket) throws IOException {
         InputStream inputStream = socket.getInputStream();
-        byte[] buff = IoUtil.readBytes(inputStream, BODY_LENGTH_LENGTH);
-        String msgLength = new String(buff, StandardCharsets.UTF_8);
-
-        buff = IoUtil.readBytes(inputStream, Integer.parseInt(msgLength, MSG_LENGTH_RADIX));
+        int i = RadixUtil.byte2Radix(IoUtil.readBytes(inputStream, BODY_LENGTH_LENGTH), MSG_LENGTH_RADIX);
+        byte[] buff = IoUtil.readBytes(inputStream, i);
         return buff;
     }
 
@@ -398,10 +386,8 @@ public class MsgTransfer {
 
     public byte[] readQyBytes(Socket socket, int timeout) throws Exception {
         InputStream inputStream = socket.getInputStream();
-        byte[] buff = IoUtil.readBytes(inputStream, BODY_LENGTH_LENGTH);
-        String msgLength = new String(buff, StandardCharsets.UTF_8);
-
-        buff = IoUtil.readBytes(inputStream, Integer.parseInt(msgLength, MSG_LENGTH_RADIX), timeout);
+        int i = RadixUtil.byte2Radix(IoUtil.readBytes(inputStream, BODY_LENGTH_LENGTH), MSG_LENGTH_RADIX);
+        byte[] buff = IoUtil.readBytes(inputStream, i, timeout);
         return buff;
     }
 

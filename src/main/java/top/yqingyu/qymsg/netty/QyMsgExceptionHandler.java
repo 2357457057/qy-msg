@@ -5,7 +5,7 @@ import io.netty.channel.ChannelHandlerContext;
 
 /**
  * 异常处理类
- * 持有{@linknetty.ServerExceptionHandler} 具体实现异常处理
+ * 持有{@link ServerExceptionHandler} 具体实现异常处理
  */
 public class QyMsgExceptionHandler extends ChannelDuplexHandler {
     private final ServerExceptionHandler serverExceptionHandler;

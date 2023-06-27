@@ -53,17 +53,11 @@ public class MsgConnector implements Runnable {
             QyMsg out = new QyMsg(msgType, dataType);
             out.setSegmentation(false);
             out.setFrom(qyMsg.getFrom());
-
             if (DataType.JSON.equals(dataType)) {
-
                 out = JSON.parseObject(buf.get(), QyMsg.class);
-
             } else if (DataType.OBJECT.equals(dataType)) {
-
                 out = IoUtil.deserializationObj(buf.get(), QyMsg.class);
-
             } else if (DataType.STRING.equals(dataType)) {
-
                 String s = new String(buf.get(), StandardCharsets.UTF_8);
                 out.putMsg(s);
             } else if (DataType.STREAM.equals(dataType)) {
@@ -73,7 +67,7 @@ public class MsgConnector implements Runnable {
             }
 
             MSG_CONTAINER.remove(partition_id);
-            log.debug("消息partition {} 拼接完成", partition_id);
+            log.debug("消息 {} piece {} 拼接完成", partition_id, out.getDenominator());
             return out;
         } else if (list != null && MSG_CONTAINER.get(partition_id).size() + 1 != denominator) {
             qyMsg.putMsgData("now", LocalDateTime.now());
@@ -95,11 +89,11 @@ public class MsgConnector implements Runnable {
                 MSG_CONTAINER.forEach((k, list) -> {
                     Optional<QyMsg> max =
                             list.stream().max((o1, o2) ->
-                                            (int) LocalDateTimeUtil.between(
-                                                    (LocalDateTime) MsgHelper.gainMsgOBJ(o1, "now"),
-                                                    (LocalDateTime) MsgHelper.gainMsgOBJ(o2, "now"),
-                                                    ChronoUnit.SECONDS)
-                                    );
+                                    (int) LocalDateTimeUtil.between(
+                                            (LocalDateTime) MsgHelper.gainMsgOBJ(o1, "now"),
+                                            (LocalDateTime) MsgHelper.gainMsgOBJ(o2, "now"),
+                                            ChronoUnit.SECONDS)
+                            );
 
                     if (max.isPresent()) {
 
