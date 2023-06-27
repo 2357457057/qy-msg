@@ -41,8 +41,8 @@ public class MsgEncoder {
     public ArrayList<byte[]> encode(QyMsg qyMsg) throws IOException {
         ArrayList<byte[]> list = new ArrayList<>();
         StringBuilder sb = new StringBuilder();
-        sb.append(MsgTransfer.MSG_TYPE_2_CHAR(qyMsg.getMsgType()));
-        sb.append(MsgTransfer.DATA_TYPE_2_CHAR(qyMsg.getDataType()));
+        sb.append((char) MsgTransfer.MSG_TYPE_2_CHAR(qyMsg.getMsgType()));
+        sb.append((char) MsgTransfer.DATA_TYPE_2_CHAR(qyMsg.getDataType()));
 
         switch (qyMsg.getMsgType()) {
             case AC -> AC_Encode(sb, qyMsg, list);
@@ -80,7 +80,7 @@ public class MsgEncoder {
      * @param list  返回的消息集合
      */
     private void HEART_BEAT_Encode(StringBuilder sb, QyMsg qyMsg, ArrayList<byte[]> list) {
-        sb.setCharAt(1, MsgTransfer.DATA_TYPE_2_CHAR(DataType.STRING));
+        sb.setCharAt(1, (char) MsgTransfer.DATA_TYPE_2_CHAR(DataType.STRING));
         sb.append(MsgTransfer.BOOLEAN_2_SEGMENTATION(false));
         byte[] body = qyMsg.getFrom().getBytes(StandardCharsets.UTF_8);
         sb.append(transfer.getLength(body));
