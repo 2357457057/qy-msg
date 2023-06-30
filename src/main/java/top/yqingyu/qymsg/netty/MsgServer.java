@@ -7,7 +7,7 @@ import io.netty.channel.socket.nio.NioServerSocketChannel;
 import top.yqingyu.common.utils.ThreadUtil;
 import top.yqingyu.qymsg.MsgTransfer;
 
-public class Server {
+public class MsgServer {
 
     private ServerBootstrap serverBootstrap;
     private int port = 4729;
@@ -19,60 +19,60 @@ public class Server {
     private Class<? extends QyMsgServerHandler> handler;
     private ChannelFuture future;
 
-    private Server() {
+    private MsgServer() {
     }
 
     public static class Builder {
-        public final Server server;
+        public final MsgServer msgServer;
 
         public Builder() {
-            server = new Server();
+            msgServer = new MsgServer();
         }
 
         public Builder Port(int port) {
-            server.port = port;
+            msgServer.port = port;
             return this;
         }
 
         public Builder Pool(int pool) {
-            server.pool = pool;
+            msgServer.pool = pool;
             return this;
         }
 
         public Builder Radix(int radix) {
-            server.radix = radix;
+            msgServer.radix = radix;
             return this;
         }
 
         public Builder ClearTime(int clearTime) {
-            server.clearTime = clearTime;
+            msgServer.clearTime = clearTime;
             return this;
         }
 
         public Builder ServerName(String serverName) {
-            server.serverName = serverName;
+            msgServer.serverName = serverName;
             return this;
         }
 
         public Builder ThreadName(String threadName) {
-            server.threadName = threadName;
+            msgServer.threadName = threadName;
             return this;
         }
 
         public Builder handler(Class<? extends QyMsgServerHandler> handler) {
-            server.handler = handler;
+            msgServer.handler = handler;
             return this;
         }
 
-        public Server build() throws Exception {
+        public MsgServer build() throws Exception {
             NioEventLoopGroup serverGroup = new NioEventLoopGroup(1, ThreadUtil.createThFactoryC("BOSS", "Th"));
-            NioEventLoopGroup clientGroup = new NioEventLoopGroup(server.pool, ThreadUtil.createThFactoryC(server.serverName, server.threadName));
+            NioEventLoopGroup clientGroup = new NioEventLoopGroup(msgServer.pool, ThreadUtil.createThFactoryC(msgServer.serverName, msgServer.threadName));
             ServerBootstrap serverBootstrap = new ServerBootstrap();
             serverBootstrap.group(serverGroup, clientGroup);
             serverBootstrap.channel(NioServerSocketChannel.class);
-            serverBootstrap.childHandler(new QyMsgServerInitializer(server.handler, MsgTransfer.init(server.radix, server.clearTime)));
-            server.serverBootstrap = serverBootstrap;
-            return server;
+            serverBootstrap.childHandler(new QyMsgServerInitializer(msgServer.handler, MsgTransfer.init(msgServer.radix, msgServer.clearTime)));
+            msgServer.serverBootstrap = serverBootstrap;
+            return msgServer;
         }
     }
 
