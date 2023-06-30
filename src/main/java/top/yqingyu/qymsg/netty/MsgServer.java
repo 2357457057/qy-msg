@@ -10,7 +10,6 @@ import top.yqingyu.qymsg.MsgTransfer;
 public class MsgServer {
 
     private ServerBootstrap serverBootstrap;
-    private int port = 4729;
     private int pool = Runtime.getRuntime().availableProcessors() * 2;
     private int radix = 32;
     private long clearTime = 30 * 60 * 1000;
@@ -29,10 +28,6 @@ public class MsgServer {
             msgServer = new MsgServer();
         }
 
-        public Builder Port(int port) {
-            msgServer.port = port;
-            return this;
-        }
 
         public Builder Pool(int pool) {
             msgServer.pool = pool;
@@ -76,7 +71,7 @@ public class MsgServer {
         }
     }
 
-    public void start() throws Exception {
+    public void start(int port) throws Exception {
         future = serverBootstrap.bind(port).sync();
     }
 
