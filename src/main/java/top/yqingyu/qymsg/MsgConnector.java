@@ -67,7 +67,7 @@ public class MsgConnector implements Runnable {
             }
 
             MSG_CONTAINER.remove(partition_id);
-            log.debug("消息 {} piece {} 拼接完成", partition_id, out.getDenominator());
+            log.debug("消息 {} piece {} 拼接完成", partition_id, denominator);
             return out;
         } else if (list != null && MSG_CONTAINER.get(partition_id).size() + 1 != denominator) {
             qyMsg.putMsgData("now", LocalDateTime.now());
