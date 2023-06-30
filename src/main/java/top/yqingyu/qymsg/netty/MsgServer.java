@@ -67,11 +67,6 @@ public class MsgServer {
             return this;
         }
 
-        public Builder transfer(MsgTransfer msgTransfer) {
-            msgServer.msgTransfer = msgTransfer;
-            return this;
-        }
-
         public Builder bodyLengthMax(int bodyLengthMax) {
             msgServer.bodyLengthMax = bodyLengthMax;
             return this;
