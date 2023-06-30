@@ -1,6 +1,7 @@
 package top.yqingyu.qymsg.netty;
 
 import io.netty.channel.Channel;
+import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import top.yqingyu.qymsg.QyMsg;
@@ -9,6 +10,7 @@ import top.yqingyu.qymsg.QyMsg;
 /**
  * QyMsg服务器业务逻辑的抽象类
  */
+@ChannelHandler.Sharable
 public abstract class QyMsgServerHandler extends SimpleChannelInboundHandler<QyMsg> {
     @Override
     protected final void channelRead0(ChannelHandlerContext ctx, QyMsg msg) throws Exception {

@@ -100,6 +100,8 @@ public class MsgTransfer {
         }
     }
 
+    private MsgTransfer() {
+    }
 
     public static MsgTransfer init(int radix, int body_length_max, long clearTime) {
         MsgTransfer msgTransfer = new MsgTransfer();

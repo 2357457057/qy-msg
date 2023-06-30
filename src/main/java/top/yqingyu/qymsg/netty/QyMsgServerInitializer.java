@@ -6,19 +6,21 @@ import io.netty.channel.socket.SocketChannel;
 import top.yqingyu.qymsg.MsgConnector;
 import top.yqingyu.qymsg.MsgTransfer;
 
+import java.lang.reflect.Constructor;
+
 
 /**
  * 初始化工具
  */
 public class QyMsgServerInitializer extends ChannelInitializer<SocketChannel> {
 
-    private final QyMsgServerHandler qyMsgServerHandler;
+    private final Constructor<QyMsgServerHandler> constructor;
     private ServerExceptionHandler serverExceptionHandler;
     private final MsgTransfer transfer;
 
-    public QyMsgServerInitializer(QyMsgServerHandler qyMsgServerHandler, MsgTransfer transfer) {
-        //TEST CODE   MsgTransfer.init(32, 99999);
-        this.qyMsgServerHandler = qyMsgServerHandler;
+    @SuppressWarnings("unchecked")
+    public QyMsgServerInitializer(Class<? extends QyMsgServerHandler> clazz, MsgTransfer transfer) throws Exception {
+        this.constructor = (Constructor<QyMsgServerHandler>) clazz.getConstructor();
         this.transfer = transfer;
     }
 
@@ -26,7 +28,7 @@ public class QyMsgServerInitializer extends ChannelInitializer<SocketChannel> {
     protected void initChannel(SocketChannel ch) throws Exception {
         ChannelPipeline pipeline = ch.pipeline();
         pipeline.addLast(new BytesDecodeQyMsg(transfer));
-        pipeline.addLast(qyMsgServerHandler);
+        pipeline.addLast(constructor.newInstance());
         pipeline.addLast(new QyMsgEncodeBytes(transfer));
         pipeline.addLast(serverExceptionHandler == null ? new QyMsgExceptionHandler() : new QyMsgExceptionHandler(serverExceptionHandler));
 
