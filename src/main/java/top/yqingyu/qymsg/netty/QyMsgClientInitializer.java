@@ -7,9 +7,11 @@ import top.yqingyu.qymsg.MsgTransfer;
 
 public class QyMsgClientInitializer extends ChannelInitializer<SocketChannel> {
     private final MsgTransfer transfer;
+    private final ConnectionPool pool;
 
-    public QyMsgClientInitializer(MsgTransfer transfer) {
-        this.transfer = transfer;
+    public QyMsgClientInitializer(MsgClient client) {
+        this.transfer = MsgTransfer.init(client.config.radix, client.config.bodyLengthMax, client.config.clearTime);
+        this.pool = client.pool;
     }
 
     @Override
@@ -17,6 +19,6 @@ public class QyMsgClientInitializer extends ChannelInitializer<SocketChannel> {
         ChannelPipeline pipeline = ch.pipeline();
         pipeline.addLast(new QyMsgEncodeBytes(transfer));
         pipeline.addLast(new BytesDecodeQyMsg(transfer));
-        pipeline.addLast(new QyMsgClientHandler());
+        pipeline.addLast(new QyMsgClientHandler(pool));
     }
 }

@@ -1,24 +1,24 @@
 package top.yqingyu.qymsg.netty;
 
-import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.SimpleChannelInboundHandler;
+import io.netty.channel.*;
 import top.yqingyu.qymsg.QyMsg;
 
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.LinkedBlockingQueue;
-
 public class QyMsgClientHandler extends SimpleChannelInboundHandler<QyMsg> {
-    public static final ConcurrentLinkedQueue<ChannelHandlerContext> CTX_QUEUE = new ConcurrentLinkedQueue<>();
-    public static final LinkedBlockingQueue<QyMsg> MSG_QUEUE = new LinkedBlockingQueue<>();
+
+    private final ConnectionPool pool;
+
+    public QyMsgClientHandler(ConnectionPool pool) {
+        this.pool = pool;
+    }
 
     @Override
-    public void channelActive(ChannelHandlerContext ctx) {
-        CTX_QUEUE.add(ctx);
+    public void channelActive(ChannelHandlerContext ctx) throws Exception {
+        pool.pushConnection(ctx);
     }
 
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, QyMsg msg) throws Exception {
-        MSG_QUEUE.add(msg);
+        pool.putMsg(ctx, msg);
     }
 
     @Override
