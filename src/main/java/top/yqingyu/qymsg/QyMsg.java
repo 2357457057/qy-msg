@@ -19,7 +19,7 @@ import static top.yqingyu.qymsg.Dict.QYMSG;
 @SuppressWarnings("all")
 public class QyMsg implements Serializable {
     private final static long serialVersionUID = -1854823182151532168L;
-    private final MsgType msgType;
+    private MsgType msgType;
     private DataType dataType;
 
     //来自谁的消息
@@ -150,6 +150,10 @@ public class QyMsg implements Serializable {
 
     public void setDataMap(DataMap dataMap) {
         this.dataMap = dataMap;
+    }
+
+    public void setMsgType(MsgType msgType) {
+        this.msgType = msgType;
     }
 
     public boolean equals(Object o) {
