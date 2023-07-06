@@ -17,6 +17,7 @@ public class MsgServer {
     private String serverName = "QyMsg";
     private String threadName = "handle";
     private Class<? extends QyMsgServerHandler> handler;
+    private Object[] constructorParam;
     private ServerExceptionHandler exceptionHandler;
     private MsgTransfer msgTransfer;
     private ChannelFuture future;
@@ -57,8 +58,9 @@ public class MsgServer {
             return this;
         }
 
-        public Builder handler(Class<? extends QyMsgServerHandler> handler) {
+        public Builder handler(Class<? extends QyMsgServerHandler> handler, Object... constructorParam) {
             msgServer.handler = handler;
+            msgServer.constructorParam = constructorParam;
             return this;
         }
 
@@ -79,7 +81,7 @@ public class MsgServer {
             serverBootstrap.group(serverGroup, clientGroup);
             serverBootstrap.channel(NioServerSocketChannel.class);
             msgServer.msgTransfer = MsgTransfer.init(msgServer.radix, msgServer.bodyLengthMax, msgServer.clearTime);
-            QyMsgServerInitializer initializer = new QyMsgServerInitializer(msgServer.handler, msgServer.msgTransfer);
+            QyMsgServerInitializer initializer = new QyMsgServerInitializer(msgServer.msgTransfer, msgServer.handler, msgServer.constructorParam);
             initializer.setQyMsgExceptionHandler(msgServer.exceptionHandler == null ? new ServerExceptionHandler() {
             } : msgServer.exceptionHandler);
             serverBootstrap.childHandler(initializer);

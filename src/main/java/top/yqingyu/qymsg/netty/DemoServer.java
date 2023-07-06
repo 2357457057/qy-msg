@@ -19,7 +19,7 @@ public class DemoServer {
             ServerBootstrap serverBootstrap = new ServerBootstrap();
             serverBootstrap.group(serverGroup, clientGroup);
             serverBootstrap.channel(NioServerSocketChannel.class);
-            serverBootstrap.childHandler(new QyMsgServerInitializer(DemoMsgHandler.class, MsgTransfer.init(32, 60 * 30 * 1000)));
+            serverBootstrap.childHandler(new QyMsgServerInitializer(MsgTransfer.init(32, 60 * 30 * 1000), DemoMsgHandler.class));
             ChannelFuture channelFuture = serverBootstrap.bind(4729).sync();
             channelFuture.channel().closeFuture().sync();
         } catch (Exception e) {

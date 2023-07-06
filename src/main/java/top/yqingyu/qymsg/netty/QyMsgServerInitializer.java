@@ -17,10 +17,20 @@ public class QyMsgServerInitializer extends ChannelInitializer<SocketChannel> {
     private final Constructor<QyMsgServerHandler> constructor;
     private ServerExceptionHandler serverExceptionHandler;
     private final MsgTransfer transfer;
+    private final Object[] constructorParam;
 
     @SuppressWarnings("unchecked")
-    public QyMsgServerInitializer(Class<? extends QyMsgServerHandler> clazz, MsgTransfer transfer) throws Exception {
-        this.constructor = (Constructor<QyMsgServerHandler>) clazz.getConstructor();
+    public QyMsgServerInitializer(MsgTransfer transfer, Class<? extends QyMsgServerHandler> clazz, Object... constructorParam) throws Exception {
+        if (constructorParam == null) {
+            constructorParam = new Object[0];
+        }
+        this.constructorParam = constructorParam;
+        Class<?>[] typeList = new Class[constructorParam.length];
+        for (int i = 0; i < constructorParam.length; i++) {
+            typeList[i] = constructorParam[i].getClass();
+
+        }
+        this.constructor = (Constructor<QyMsgServerHandler>) clazz.getConstructor(typeList);
         this.transfer = transfer;
     }
 
@@ -28,7 +38,7 @@ public class QyMsgServerInitializer extends ChannelInitializer<SocketChannel> {
     protected void initChannel(SocketChannel ch) throws Exception {
         ChannelPipeline pipeline = ch.pipeline();
         pipeline.addLast(new BytesDecodeQyMsg(transfer));
-        pipeline.addLast(constructor.newInstance());
+        pipeline.addLast(constructor.newInstance(constructorParam));
         pipeline.addLast(new QyMsgEncodeBytes(transfer));
         pipeline.addLast(serverExceptionHandler == null ? new QyMsgExceptionHandler() : new QyMsgExceptionHandler(serverExceptionHandler));
 
