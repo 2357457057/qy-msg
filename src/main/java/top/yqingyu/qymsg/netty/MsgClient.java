@@ -34,4 +34,8 @@ public class MsgClient {
     public void shutdown() throws InterruptedException {
         group.shutdownGracefully().sync();
     }
+
+    public Connection getConnection() throws Exception {
+        return pool.getConnection();
+    }
 }
