@@ -119,4 +119,12 @@ public class ConnectionConfig {
     public int getBodyLengthMax() {
         return bodyLengthMax;
     }
+
+    public String getName() {
+        return name;
+    }
+
+    public String getThreadName() {
+        return threadName;
+    }
 }
