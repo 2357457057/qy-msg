@@ -1,7 +1,9 @@
 package top.yqingyu.qymsg.netty;
 
 import io.netty.bootstrap.ServerBootstrap;
+import io.netty.bootstrap.ServerBootstrapConfig;
 import io.netty.channel.ChannelFuture;
+import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import top.yqingyu.common.utils.ThreadUtil;
@@ -92,6 +94,14 @@ public class MsgServer {
 
     public void start(int port) throws Exception {
         future = serverBootstrap.bind(port).sync();
+    }
+
+    public void shutdown() throws InterruptedException {
+        ServerBootstrapConfig config = serverBootstrap.config();
+        EventLoopGroup group = config.group();
+        group.shutdownGracefully().sync();
+        EventLoopGroup childGroup = config.childGroup();
+        childGroup.shutdownGracefully().sync();
     }
 
     public void block() throws InterruptedException {
