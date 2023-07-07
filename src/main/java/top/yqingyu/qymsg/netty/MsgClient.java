@@ -4,6 +4,7 @@ import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioSocketChannel;
+import top.yqingyu.common.utils.ThreadUtil;
 
 public class MsgClient {
     Bootstrap bootstrap;
@@ -20,7 +21,7 @@ public class MsgClient {
         client.config = config;
         client.pool = new ConnectionPool(client);
 
-        EventLoopGroup group = new NioEventLoopGroup(config.poolMax);
+        EventLoopGroup group = new NioEventLoopGroup(config.poolMax, ThreadUtil.createThFactoryC(config.name, config.threadName));
         client.group = group;
         Bootstrap bootstrap = new Bootstrap();
         client.bootstrap = bootstrap;

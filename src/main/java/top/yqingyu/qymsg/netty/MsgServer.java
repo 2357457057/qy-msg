@@ -14,7 +14,7 @@ public class MsgServer {
     private int radix = 32;
     private long clearTime = 30 * 60 * 1000;
     private int bodyLengthMax = 1400;
-    private String serverName = "QyMsg";
+    private String serverName = "QyMsgServer";
     private String threadName = "handle";
     private Class<? extends QyMsgServerHandler> handler;
     private Object[] constructorParam;

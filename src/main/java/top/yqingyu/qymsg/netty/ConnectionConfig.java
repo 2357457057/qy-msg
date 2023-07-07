@@ -7,8 +7,10 @@ public class ConnectionConfig {
     int poolMax;
     int poolMin;
     int radix;
+    int bodyLengthMax;
+    String name;
+    String threadName;
     volatile long clearTime;
-    volatile int bodyLengthMax;
 
     private ConnectionConfig(Builder builder) {
         host = builder.host;
@@ -18,6 +20,8 @@ public class ConnectionConfig {
         radix = builder.radix;
         clearTime = builder.clearTime;
         bodyLengthMax = builder.bodyLengthMax;
+        name = builder.name;
+        threadName = builder.threadName;
     }
 
     public static final class Builder {
@@ -26,8 +30,10 @@ public class ConnectionConfig {
         int poolMax = 6;
         int poolMin = 2;
         int radix = 32;
+        int bodyLengthMax = 1400;
+        String name = "QyMsgClient";
+        String threadName = "handle";
         volatile long clearTime = 30 * 60 * 1000;
-        volatile int bodyLengthMax = 1400;
 
         public Builder() {
         }
@@ -67,6 +73,16 @@ public class ConnectionConfig {
             return this;
         }
 
+        public Builder name(String val) {
+            name = val;
+            return this;
+        }
+
+        public Builder threadName(String val) {
+            threadName = val;
+            return this;
+        }
+
         public ConnectionConfig build() {
             return new ConnectionConfig(this);
         }
@@ -74,10 +90,6 @@ public class ConnectionConfig {
 
     public void setClearTime(long clearTime) {
         this.clearTime = clearTime;
-    }
-
-    public void setBodyLengthMax(int bodyLengthMax) {
-        this.bodyLengthMax = bodyLengthMax;
     }
 
     public String getHost() {
