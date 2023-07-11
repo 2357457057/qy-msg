@@ -1,6 +1,8 @@
 package top.yqingyu.qymsg.netty;
 
 import io.netty.channel.ChannelHandlerContext;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import top.yqingyu.qymsg.DataType;
 import top.yqingyu.qymsg.MsgType;
 import top.yqingyu.qymsg.QyMsg;
@@ -10,6 +12,7 @@ import java.util.concurrent.*;
 import java.util.concurrent.locks.ReentrantLock;
 
 public class ConnectionPool {
+    public static final Logger logger = LoggerFactory.getLogger(ConnectionPool.class);
     MsgClient client;
     ConnectionConfig config;
     private final ConcurrentLinkedQueue<Connection> CONNECT_QUEUE;
@@ -35,8 +38,9 @@ public class ConnectionPool {
                     for (int i = 0; i < config.poolMin; i++) {
                         connect0();
                     }
+                    keep.start(this);
+                    init = true;
                 }
-                init = true;
             } finally {
                 genConnectionLock.unlock();
             }
@@ -66,6 +70,9 @@ public class ConnectionPool {
         while (take == null) {
             Thread.sleep(0);
             take = getConnection0();
+            if (take != null && !CONNECT_MAP.containsValue(take)) {
+                take = null;
+            }
         }
         CONNECT_QUEUE.add(take);
         return take;
@@ -87,5 +94,47 @@ public class ConnectionPool {
     private void connect0() throws Exception {
         client.bootstrap.connect(config.host, config.port);
         connBarrier.await();
+    }
+
+    static class keep implements Runnable {
+        private final ConcurrentHashMap<Integer, Connection> CONNECT_MAP;
+        private final QyMsg HEART;
+        private final long sleepTime;
+
+        keep(ConnectionPool pool) {
+            this.CONNECT_MAP = pool.CONNECT_MAP;
+            sleepTime = Constants.noOpMaxTime / 1000_000L / 4 * 3;
+            HEART = pool.client.HEART_BEAT;
+        }
+
+        static void start(ConnectionPool pool) {
+            Thread thread = new Thread(new keep(pool));
+            thread.setName("keep-live");
+            thread.setDaemon(true);
+            thread.start();
+        }
+
+        public void run() {
+            while (!Thread.interrupted()) {
+                try {
+                    Thread.sleep(sleepTime);
+                    CONNECT_MAP.forEach((i, c) -> {
+                        if (c.needKeep()) {
+                            try {
+                                c.getLock.lock();
+                                if (c.needKeep()) {
+                                    c.write(HEART);
+                                }
+                            } catch (Exception e) {
+                                CONNECT_MAP.remove(i);
+                            } finally {
+                                c.getLock.unlock();
+                            }
+                        }
+                    });
+                } catch (Exception ignore) {
+                }
+            }
+        }
     }
 }

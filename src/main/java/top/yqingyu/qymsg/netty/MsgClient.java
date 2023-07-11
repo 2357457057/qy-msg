@@ -5,13 +5,16 @@ import io.netty.channel.EventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import top.yqingyu.common.utils.ThreadUtil;
+import top.yqingyu.qymsg.DataType;
+import top.yqingyu.qymsg.MsgType;
+import top.yqingyu.qymsg.QyMsg;
 
 public class MsgClient {
     Bootstrap bootstrap;
     ConnectionPool pool;
     ConnectionConfig config;
-
     private EventLoopGroup group;
+    QyMsg HEART_BEAT;
 
     private MsgClient() {
     }
@@ -19,6 +22,8 @@ public class MsgClient {
     public static MsgClient create(ConnectionConfig config) {
         MsgClient client = new MsgClient();
         client.config = config;
+        client.HEART_BEAT = new QyMsg(MsgType.HEART_BEAT, DataType.STRING);
+        client.HEART_BEAT.setFrom(config.name);
         client.pool = new ConnectionPool(client);
 
         EventLoopGroup group = new NioEventLoopGroup(config.poolMax, ThreadUtil.createThFactoryC(config.name, config.threadName));

@@ -11,7 +11,9 @@ public class Connection {
     final ChannelHandlerContext ctx;
     private final int hash;
     final LinkedBlockingQueue<QyMsg> MSG_QUEUE = new LinkedBlockingQueue<>();
-    private final ReentrantLock getLock = new ReentrantLock();
+    final ReentrantLock getLock = new ReentrantLock();
+    private volatile long activeTime = System.nanoTime();
+
     Connection(ChannelHandlerContext ctx) {
         this.ctx = ctx;
         hash = ctx.hashCode();
@@ -19,14 +21,17 @@ public class Connection {
 
 
     public void write(QyMsg msg) {
+        activeTime = System.nanoTime();
         ctx.writeAndFlush(msg);
     }
 
     public QyMsg take() throws InterruptedException {
+        activeTime = System.nanoTime();
         return MSG_QUEUE.take();
     }
 
     public QyMsg take(long timeout) throws InterruptedException {
+        activeTime = System.nanoTime();
         return MSG_QUEUE.poll(timeout, TimeUnit.MILLISECONDS);
     }
 
@@ -57,5 +62,9 @@ public class Connection {
 
     int getHash() {
         return hash;
+    }
+
+    public boolean needKeep() {
+        return System.nanoTime() - activeTime > Constants.noOpMaxTime;
     }
 }
