@@ -3,13 +3,12 @@ package top.yqingyu.qymsg.netty;
 import io.netty.channel.ChannelHandlerContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import top.yqingyu.common.exception.QyException;
 import top.yqingyu.qymsg.DataType;
 import top.yqingyu.qymsg.MsgType;
 import top.yqingyu.qymsg.QyMsg;
 
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.*;
 import java.util.concurrent.locks.ReentrantLock;
 
 public class ConnectionPool {
@@ -69,7 +68,9 @@ public class ConnectionPool {
             take = CONNECT_QUEUE.poll();
         }
         if (take != null && take.isClosed()) {
-            CONNECT_MAP.remove(take.getHash());
+            CONNECT_MAP.clear();
+            CONNECT_QUEUE.clear();
+            take = null;
         }
         while (take == null) {
             Thread.sleep(0);
@@ -78,7 +79,8 @@ public class ConnectionPool {
                 take = null;
             }
             if (take != null && take.isClosed()) {
-                CONNECT_MAP.remove(take.getHash());
+                CONNECT_MAP.clear();
+                CONNECT_QUEUE.clear();
                 take = null;
             }
         }
@@ -101,7 +103,11 @@ public class ConnectionPool {
 
     private void connect0() throws Exception {
         client.bootstrap.connect(config.host, config.port);
-        connBarrier.await();
+        try {
+            connBarrier.await(5, TimeUnit.SECONDS);
+        } catch (TimeoutException timeoutException){
+            throw new QyException("connect time out");
+        }
     }
 
     static class keep implements Runnable {
