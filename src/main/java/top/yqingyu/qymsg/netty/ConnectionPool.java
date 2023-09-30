@@ -3,10 +3,12 @@ package top.yqingyu.qymsg.netty;
 import io.netty.channel.ChannelHandlerContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import top.yqingyu.common.exception.QyException;
+
+
 import top.yqingyu.qymsg.DataType;
 import top.yqingyu.qymsg.MsgType;
 import top.yqingyu.qymsg.QyMsg;
+import top.yqingyu.qymsg.exception.ConnectTimeOutException;
 
 import java.util.concurrent.*;
 import java.util.concurrent.locks.ReentrantLock;
@@ -105,9 +107,9 @@ public class ConnectionPool {
         client.bootstrap.connect(config.host, config.port);
         try {
             connBarrier.await(5, TimeUnit.SECONDS);
-        } catch (TimeoutException timeoutException){
+        } catch (TimeoutException timeoutException) {
             connBarrier.reset();
-            throw new QyException("connect time out");
+            throw new ConnectTimeOutException("connect time out");
         }
     }
 
