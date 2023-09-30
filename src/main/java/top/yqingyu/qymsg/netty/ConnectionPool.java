@@ -106,6 +106,7 @@ public class ConnectionPool {
         try {
             connBarrier.await(5, TimeUnit.SECONDS);
         } catch (TimeoutException timeoutException){
+            connBarrier.reset();
             throw new QyException("connect time out");
         }
     }
