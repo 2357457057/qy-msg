@@ -36,7 +36,7 @@ public class Connection {
             activeTime = System.nanoTime();
             return MSG_QUEUE.poll(timeout, TimeUnit.MILLISECONDS);
         } finally {
-            if (activeTime - System.nanoTime() > timeout * 1_000_000) {
+            if (System.nanoTime() - activeTime >= timeout * 1_000_000) {
                 close();
             }
         }
