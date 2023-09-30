@@ -7,8 +7,9 @@ import top.yqingyu.qymsg.DataType;
 import top.yqingyu.qymsg.MsgType;
 import top.yqingyu.qymsg.QyMsg;
 
-
-import java.util.concurrent.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.locks.ReentrantLock;
 
 public class ConnectionPool {
@@ -67,10 +68,17 @@ public class ConnectionPool {
         } else {
             take = CONNECT_QUEUE.poll();
         }
+        if (take != null && take.isClosed()) {
+            CONNECT_MAP.remove(take.getHash());
+        }
         while (take == null) {
             Thread.sleep(0);
             take = getConnection0();
             if (take != null && !CONNECT_MAP.containsValue(take)) {
+                take = null;
+            }
+            if (take != null && take.isClosed()) {
+                CONNECT_MAP.remove(take.getHash());
                 take = null;
             }
         }

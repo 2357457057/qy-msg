@@ -13,6 +13,7 @@ public class Connection {
     final LinkedBlockingQueue<QyMsg> MSG_QUEUE = new LinkedBlockingQueue<>();
     final ReentrantLock getLock = new ReentrantLock();
     private volatile long activeTime = System.nanoTime();
+    volatile boolean closed = false;
 
     Connection(ChannelHandlerContext ctx) {
         this.ctx = ctx;
@@ -31,8 +32,14 @@ public class Connection {
     }
 
     public QyMsg take(long timeout) throws InterruptedException {
-        activeTime = System.nanoTime();
-        return MSG_QUEUE.poll(timeout, TimeUnit.MILLISECONDS);
+        try {
+            activeTime = System.nanoTime();
+            return MSG_QUEUE.poll(timeout, TimeUnit.MILLISECONDS);
+        } finally {
+            if (activeTime - System.nanoTime() > timeout * 1_000_000) {
+                close();
+            }
+        }
     }
 
     public QyMsg get(QyMsg msg) throws InterruptedException {
@@ -62,6 +69,15 @@ public class Connection {
 
     int getHash() {
         return hash;
+    }
+
+    public void close() {
+        closed = true;
+        ctx.close();
+    }
+
+    public boolean isClosed() {
+        return closed;
     }
 
     public boolean needKeep() {
