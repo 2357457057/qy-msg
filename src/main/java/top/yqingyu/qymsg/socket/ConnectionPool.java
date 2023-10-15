@@ -88,7 +88,9 @@ public class ConnectionPool {
     }
 
     private void connect0() throws Exception {
-        new Connection(config);
+        Connection connection = new Connection(config);
+        CONNECT_QUEUE.add(connection);
+        CONNECT_MAP.put(connection.hashCode(), connection);
     }
 
     public void shutdown() {
