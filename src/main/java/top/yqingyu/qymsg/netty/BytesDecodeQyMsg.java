@@ -9,9 +9,7 @@ import org.slf4j.LoggerFactory;
 import top.yqingyu.common.qydata.ConcurrentQyMap;
 import top.yqingyu.common.utils.ArrayUtil;
 import top.yqingyu.common.utils.IoUtil;
-
 import top.yqingyu.qymsg.*;
-
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -229,12 +227,16 @@ public class BytesDecodeQyMsg extends ByteToMessageDecoder {
     /**
      * 异常消息组装
      */
-    private QyMsg ERR_MSG_Disassembly(ByteBuf in, int ctxHashCode, ConcurrentQyMap<String, Object> ctxInfo, byte[] header, byte[] body) {
+    private QyMsg ERR_MSG_Disassembly(ByteBuf in, int ctxHashCode, ConcurrentQyMap<String, Object> ctxInfo, byte[] header, byte[] body) throws IOException, ClassNotFoundException {
         QyMsg qyMsg = decoder.createMsg(header);
         if (DataType.JSON.equals(qyMsg.getDataType())) {
             byte[] bytes = readBytes2(in, ctxHashCode, ctxInfo, header, body);
             if (bytes == null) return null;
             return JSON.parseObject(bytes, QyMsg.class);
+        } else if (DataType.OBJECT.equals(qyMsg.getDataType())) {
+            byte[] bytes = readBytes2(in, ctxHashCode, ctxInfo, header, body);
+            if (bytes == null) return null;
+            return IoUtil.deserializationObj(bytes, QyMsg.class);
         } else {
             return streamDeal(in, ctxHashCode, ctxInfo, header, body);
         }

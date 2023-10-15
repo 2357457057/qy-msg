@@ -202,7 +202,7 @@ public class MsgTransfer {
      * @version 1.0.0
      * @description 读取消息并将分片消息写入队列
      */
-    public QyMsg readQyMsg(SocketChannel socketChannel, long sleep) throws IOException, ClassNotFoundException, InterruptedException {
+    public QyMsg readQyMsg(SocketChannel socketChannel, long sleep) throws Exception {
         return msgDecoder.decode(socketChannel, sleep);
     }
 

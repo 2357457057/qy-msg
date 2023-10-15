@@ -6,8 +6,10 @@ import top.yqingyu.qymsg.netty.Constants;
 
 import java.io.IOException;
 import java.net.Socket;
+import java.net.SocketException;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -60,6 +62,9 @@ public class Connection {
             getLock.lock();
             write(msg);
             return read();
+        } catch (SocketException e) {
+            close();
+            throw e;
         } finally {
             activeTime = System.nanoTime();
             getLock.unlock();
@@ -71,6 +76,9 @@ public class Connection {
             getLock.lock();
             write(msg);
             return read(timeout);
+        } catch (SocketException | TimeoutException e) {
+            close();
+            throw e;
         } finally {
             activeTime = System.nanoTime();
             getLock.unlock();

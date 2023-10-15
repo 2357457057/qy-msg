@@ -13,7 +13,6 @@ public class ConnectionConfig {
     String name;
     String threadName;
     volatile long clearTime;
-
     volatile MsgTransfer msgTransfer;
 
     private ConnectionConfig(Builder builder) {

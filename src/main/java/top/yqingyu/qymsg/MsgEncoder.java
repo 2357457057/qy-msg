@@ -3,7 +3,10 @@ package top.yqingyu.qymsg;
 import com.alibaba.fastjson2.JSON;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import top.yqingyu.common.utils.*;
+import top.yqingyu.common.utils.ArrayUtil;
+import top.yqingyu.common.utils.IoUtil;
+import top.yqingyu.common.utils.RadixUtil;
+import top.yqingyu.common.utils.RandomStringUtil;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -114,10 +117,12 @@ public class MsgEncoder {
      * @param header 消息头
      * @param list   返回的消息集合
      */
-    private void ERR_MSG_Encode(byte[] header, QyMsg qyMsg, ArrayList<byte[]> list) {
+    private void ERR_MSG_Encode(byte[] header, QyMsg qyMsg, ArrayList<byte[]> list) throws IOException {
         byte[] body;
         if (DataType.JSON.equals(qyMsg.getDataType())) {
             body = JSON.toJSONString(qyMsg).getBytes(StandardCharsets.UTF_8);
+        } else if (DataType.OBJECT.equals(qyMsg.getDataType())) {
+            body = IoUtil.objToSerializBytes(qyMsg);
         } else {
             body = (qyMsg.getFrom() + MsgHelper.gainMsg(qyMsg)).getBytes(StandardCharsets.UTF_8);
         }

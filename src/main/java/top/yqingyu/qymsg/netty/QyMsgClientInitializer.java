@@ -17,7 +17,7 @@ public class QyMsgClientInitializer extends ChannelInitializer<SocketChannel> {
     @Override
     protected void initChannel(SocketChannel ch) throws Exception {
         ChannelPipeline pipeline = ch.pipeline();
-        pipeline.addLast(new QyMsgEncodeBytes(transfer));
+        pipeline.addLast(new QyMsgEncodeBytes(transfer, new QyMsgExceptionHandler()));
         pipeline.addLast(new BytesDecodeQyMsg(transfer));
         pipeline.addLast(new QyMsgClientHandler(pool));
     }

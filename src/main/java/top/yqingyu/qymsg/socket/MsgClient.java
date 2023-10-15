@@ -1,6 +1,7 @@
 package top.yqingyu.qymsg.socket;
 
 import top.yqingyu.qymsg.DataType;
+import top.yqingyu.qymsg.MsgTransfer;
 import top.yqingyu.qymsg.MsgType;
 import top.yqingyu.qymsg.QyMsg;
 
@@ -18,6 +19,7 @@ public class MsgClient {
         client.config = config;
         client.HEART_BEAT = new QyMsg(MsgType.HEART_BEAT, DataType.STRING);
         client.HEART_BEAT.setFrom(config.name);
+        config.msgTransfer = MsgTransfer.init(config.radix, config.bodyLengthMax, config.clearTime);
         client.pool = new ConnectionPool(client);
         return client;
     }

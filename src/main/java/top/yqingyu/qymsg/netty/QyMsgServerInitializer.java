@@ -36,11 +36,12 @@ public class QyMsgServerInitializer extends ChannelInitializer<SocketChannel> {
 
     @Override
     protected void initChannel(SocketChannel ch) throws Exception {
+        QyMsgExceptionHandler qyMsgExceptionHandler = serverExceptionHandler == null ? new QyMsgExceptionHandler() : new QyMsgExceptionHandler(serverExceptionHandler);
         ChannelPipeline pipeline = ch.pipeline();
         pipeline.addLast(new BytesDecodeQyMsg(transfer));
         pipeline.addLast(constructor.newInstance(constructorParam));
-        pipeline.addLast(new QyMsgEncodeBytes(transfer));
-        pipeline.addLast(serverExceptionHandler == null ? new QyMsgExceptionHandler() : new QyMsgExceptionHandler(serverExceptionHandler));
+        pipeline.addLast(new QyMsgEncodeBytes(transfer, qyMsgExceptionHandler));
+        pipeline.addLast(qyMsgExceptionHandler);
 
     }
 

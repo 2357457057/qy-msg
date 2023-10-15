@@ -4,9 +4,9 @@ import com.alibaba.fastjson2.JSON;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import top.yqingyu.common.utils.ArrayUtil;
+import top.yqingyu.common.utils.IoUtil;
 import top.yqingyu.common.utils.RadixUtil;
 import top.yqingyu.qymsg.exception.IllegalQyMsgException;
-import top.yqingyu.common.utils.IoUtil;
 
 import java.io.IOException;
 import java.net.Socket;
@@ -90,7 +90,7 @@ public class MsgDecoder {
      *
      * @author YYJ
      */
-    public QyMsg decode(SocketChannel socketChannel, long sleep) throws IOException, ClassNotFoundException, InterruptedException {
+    public QyMsg decode(SocketChannel socketChannel, long sleep) throws Exception {
 
         byte[] header = IoUtil.readBytes(socketChannel, HEADER_LENGTH);
         Thread.sleep(sleep);
@@ -192,11 +192,14 @@ public class MsgDecoder {
     /**
      * 异常消息组装
      */
-    private QyMsg ERR_MSG_Decode(byte[] header, Socket socket, AtomicBoolean runFlag) throws IOException {
+    private QyMsg ERR_MSG_Decode(byte[] header, Socket socket, AtomicBoolean runFlag) throws IOException, ClassNotFoundException {
         QyMsg qyMsg = createMsg(header);
         if (DataType.JSON.equals(qyMsg.getDataType())) {
             byte[] bytes = IoUtil.readBytes3(socket, getMsgLength(header), runFlag);
             return JSON.parseObject(bytes, QyMsg.class);
+        } else if (DataType.OBJECT.equals(qyMsg.getDataType())) {
+            byte[] bytes = IoUtil.readBytes3(socket, getMsgLength(header), runFlag);
+            return IoUtil.deserializationObj(bytes, QyMsg.class);
         } else {
             return streamDeal(header, socket, runFlag);
         }
@@ -270,11 +273,14 @@ public class MsgDecoder {
     /**
      * 异常消息组装
      */
-    private QyMsg ERR_MSG_Decode(byte[] header, SocketChannel socketChannel) throws IOException {
+    private QyMsg ERR_MSG_Decode(byte[] header, SocketChannel socketChannel) throws Exception {
         QyMsg qyMsg = createMsg(header);
         if (DataType.JSON.equals(qyMsg.getDataType())) {
             byte[] bytes = IoUtil.readBytes(socketChannel, getMsgLength(header));
             return JSON.parseObject(bytes, QyMsg.class);
+        } else if (DataType.OBJECT.equals(qyMsg.getDataType())) {
+            byte[] bytes = IoUtil.readBytes(socketChannel, getMsgLength(header));
+            return IoUtil.deserializationObj(bytes, QyMsg.class);
         } else {
             return streamDeal(header, socketChannel);
         }
