@@ -39,6 +39,7 @@ public interface Dict {
     Integer CLIENT_ID_LENGTH = 32;
     String QYMSG = "MSG";
     String MSG_ID = "Q_MSG_ID";
+    String ERR_MSG_EXCEPTION = "msgException";
     /*==========================QyMSG=============================*/
 
 
