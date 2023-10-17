@@ -1,0 +1,17 @@
+stages:          # List of stages for jobs, and their order of execution
+  - git_sync
+  - install
+
+git_sync:
+  stage: git_sync
+  script: 
+    - cd /data/mycode/QyMsg
+    - git pull gitlab master
+    - git push gitee master
+
+build-job:       # This job runs in the build stage, which runs first.
+  stage: install
+  script:
+    - cd /data/mycode/QyMsg
+    - git pull gitlab master
+    - mvn clean install -Dgpg.skip=true
