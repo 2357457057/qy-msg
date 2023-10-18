@@ -7,7 +7,7 @@
     <parent>
         <groupId>top.yqingyu</groupId>
         <artifactId>yqingyu-parent</artifactId>
-        <version>1.9.6</version>
+        <version>1.9.7</version>
     </parent>
     <artifactId>QyMsg</artifactId>
     <version>${project.parent.version}</version>
