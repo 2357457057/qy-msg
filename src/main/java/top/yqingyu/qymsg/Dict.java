@@ -10,14 +10,22 @@ package top.yqingyu.qymsg;
  * @createTime 2023年01月05日 23:23:00
  */
 public interface Dict {
+    /*==========================QyMSG=============================*/
+    Integer CLIENT_ID_LENGTH = 32;
+    String QYMSG = "MSG";
+    String MSG_ID = "Q_MSG_ID";
+    String ERR_MSG_EXCEPTION = "msgException";
+    /*==========================QyMSG=============================*/
+
     /*==========================HEADER=============================*/
-    Integer HEADER_LENGTH = 8;
+    Integer HEADER_LENGTH = 8 + CLIENT_ID_LENGTH;
     Integer MSG_TYPE_IDX = 0;
     Integer DATA_TYPE_IDX = 1;
     Integer SEGMENTATION_IDX = 2;
-    Integer MSG_LENGTH_IDX_START = 3;
+    Integer MSG_FROM_IDX_START = 3;
     Integer BODY_LENGTH_LENGTH = 5;
-    Integer MSG_LENGTH_IDX_END = 8;
+    Integer MSG_LENGTH_IDX_START = HEADER_LENGTH - 5;
+    Integer MSG_LENGTH_IDX_END = HEADER_LENGTH;
     /*==========================HEADER=============================*/
 
 
@@ -33,14 +41,6 @@ public interface Dict {
     Integer DENOMINATOR_IDX_END = DENOMINATOR_IDX_START + DENOMINATOR_LENGTH;
     Integer SEGMENTATION_INFO_LENGTH = PARTITION_ID_LENGTH + NUMERATOR_LENGTH + DENOMINATOR_LENGTH;
     /*==========================分片信息=============================*/
-
-
-    /*==========================QyMSG=============================*/
-    Integer CLIENT_ID_LENGTH = 32;
-    String QYMSG = "MSG";
-    String MSG_ID = "Q_MSG_ID";
-    String ERR_MSG_EXCEPTION = "msgException";
-    /*==========================QyMSG=============================*/
 
 
     /*==========================FileMSG=============================*/

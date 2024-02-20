@@ -324,6 +324,7 @@ public class MsgDecoder {
             throw handleException(e, "非法分片字符", header);
         }
         QyMsg qyMsg = new QyMsg(msgType, dataType);
+        qyMsg.setFrom(new String(header, MSG_FROM_IDX_START, CLIENT_ID_LENGTH, StandardCharsets.UTF_8));
         qyMsg.setSegmentation(segmentation);
         return qyMsg;
     }
