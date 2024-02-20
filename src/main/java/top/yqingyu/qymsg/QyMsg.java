@@ -1,5 +1,6 @@
 package top.yqingyu.qymsg;
 
+import com.alibaba.fastjson2.JSON;
 import top.yqingyu.common.qydata.DataMap;
 import top.yqingyu.common.utils.UUIDUtil;
 
@@ -171,5 +172,10 @@ public class QyMsg implements Serializable {
         this.numerator = numerator;
         this.denominator = denominator;
         this.dataMap = dataMap;
+    }
+
+    @Override
+    public String toString() {
+        return JSON.toJSONString(this);
     }
 }
