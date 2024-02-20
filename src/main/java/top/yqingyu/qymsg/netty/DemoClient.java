@@ -18,7 +18,7 @@ public class DemoClient {
 
         ConnectionConfig build = new ConnectionConfig.Builder()
 
-                .host("192.168.50.68")
+                .host("127.0.0.1")
                 .poolMax(40)
                 .build();
         MsgClient client = MsgClient.create(build);
@@ -35,7 +35,7 @@ public class DemoClient {
                     try {
                         Connection connection = client.getConnection();
                         LocalDateTime now = LocalDateTime.now();
-                        connection.get(qyMsg);
+                        System.out.println(connection.get(qyMsg));
                         longs.add(LocalDateTimeUtil.between(now, LocalDateTime.now(), ChronoUnit.MICROS));
                     } catch (Exception e) {
                         e.printStackTrace();
