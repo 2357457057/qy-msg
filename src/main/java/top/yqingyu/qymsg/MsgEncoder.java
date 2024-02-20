@@ -44,7 +44,11 @@ public class MsgEncoder {
         header[MSG_TYPE_IDX] = MsgTransfer.MSG_TYPE_2_CHAR(qyMsg.getMsgType());
         header[DATA_TYPE_IDX] = MsgTransfer.DATA_TYPE_2_CHAR(qyMsg.getDataType());
         header[SEGMENTATION_IDX] = MsgTransfer.BOOLEAN_2_SEGMENTATION(false);
-        byte[] from = qyMsg.getFrom().getBytes(StandardCharsets.UTF_8);
+        String msgFrom = qyMsg.getFrom();
+        if (msgFrom == null) {
+            msgFrom = "";
+        }
+        byte[] from = msgFrom.getBytes(StandardCharsets.UTF_8);
         System.arraycopy(from, 0, header, MSG_FROM_IDX_START, from.length);
         switch (qyMsg.getMsgType()) {
             case AC -> AC_Encode(header, qyMsg, list);
