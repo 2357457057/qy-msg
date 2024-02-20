@@ -293,7 +293,12 @@ public class MsgDecoder {
     }
 
     public int getMsgLength(byte[] array) {
-        return RadixUtil.byte2Radix(ArrayUtil.subarray(array, MSG_LENGTH_IDX_START, MSG_LENGTH_IDX_END), transfer.MSG_LENGTH_RADIX);
+        try {
+            return RadixUtil.byte2Radix(ArrayUtil.subarray(array, MSG_LENGTH_IDX_START, MSG_LENGTH_IDX_END), transfer.MSG_LENGTH_RADIX);
+        } catch (Exception e) {
+            log.error("消息长度解析报错{} {}", new String(array, StandardCharsets.UTF_8), array, e);
+            throw e;
+        }
     }
 
     public void setSegmentInfo(QyMsg msg, byte[] array) {
