@@ -7,6 +7,7 @@ import io.netty.handler.codec.ByteToMessageDecoder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import top.yqingyu.common.qydata.ConcurrentQyMap;
+import top.yqingyu.common.qydata.DataMap;
 import top.yqingyu.common.utils.ArrayUtil;
 import top.yqingyu.common.utils.IoUtil;
 import top.yqingyu.qymsg.*;
@@ -61,47 +62,7 @@ public class BytesDecodeQyMsg extends ByteToMessageDecoder {
             throw decoder.handleException(e, "非法分片标识", header);
         }
 
-        if (segmentation) {
-            QyMsg parse = decoder.createMsg(header);
-
-            if (segmentationInfo == null) {
-                segmentationInfo = readBytes(in, SEGMENTATION_INFO_LENGTH);
-            }
-            decoder.setSegmentInfo(parse, segmentationInfo);
-            int bodySize = decoder.getMsgLength(header);
-            int readableSize = in.readableBytes();
-            if (segBody == null) {
-                if (readableSize >= bodySize) {
-                    readBytes = readBytes(in, bodySize);
-                    parse.putMsg(readBytes);
-                    log.debug("PartMsgId: {} the part {} of {}", parse.getPartition_id(), parse.getNumerator(), parse.getDenominator());
-                    QyMsg merger = connector.merger(parse);
-                    if (merger != null) {
-                        DECODE_TEMP_CACHE.remove(ctxHashCode);
-                        ctx.fireChannelRead(merger);
-                    }
-                } else {
-                    ConcurrentQyMap<String, Object> ctxInfo = new ConcurrentQyMap<>();
-                    updateSegCtxInfo(ctxHashCode, ctxInfo, header, segmentationInfo, readBytes(in, readableSize));
-                }
-            } else {
-                bodySize -= segBody.length;
-                if (readableSize >= bodySize) {
-                    DECODE_TEMP_CACHE.remove(ctxHashCode);
-                    readBytes = ArrayUtil.addAll(segBody, readBytes(in, bodySize));
-                    parse.putMsg(readBytes);
-                    log.debug("PartMsgId: {} the part {} of {}", parse.getPartition_id(), parse.getNumerator(), parse.getDenominator());
-                    QyMsg merger = connector.merger(parse);
-                    if (merger != null) {
-                        DECODE_TEMP_CACHE.remove(ctxHashCode);
-                        ctx.fireChannelRead(merger);
-                    }
-                } else {
-                    segBody = ArrayUtil.addAll(segBody, readBytes(in, readableSize));
-                    updateSegCtxInfo(ctxHashCode, ctxData, header, segmentationInfo, segBody);
-                }
-            }
-        } else {
+        if (!segmentation) {
             MsgType msgType;
             try {
                 msgType = MsgTransfer.CHAR_2_MSG_TYPE(header[MSG_TYPE_IDX]);
@@ -118,6 +79,45 @@ public class BytesDecodeQyMsg extends ByteToMessageDecoder {
             if (qyMsg != null) {
                 DECODE_TEMP_CACHE.remove(ctxHashCode);
                 ctx.fireChannelRead(qyMsg);
+            }
+            return;
+        }
+        QyMsg parse = decoder.createMsg(header);
+        if (segmentationInfo == null) {
+            segmentationInfo = readBytes(in, SEGMENTATION_INFO_LENGTH);
+        }
+        decoder.setSegmentInfo(parse, segmentationInfo);
+        int bodySize = decoder.getMsgLength(header);
+        int readableSize = in.readableBytes();
+        if (segBody == null) {
+            if (readableSize >= bodySize) {
+                readBytes = readBytes(in, bodySize);
+                parse.putMsg(readBytes);
+                log.debug("PartMsgId: {} the part {} of {}", parse.getPartition_id(), parse.getNumerator(), parse.getDenominator());
+                QyMsg merger = connector.merger(parse);
+                if (merger != null) {
+                    DECODE_TEMP_CACHE.remove(ctxHashCode);
+                    ctx.fireChannelRead(merger);
+                }
+            } else {
+                ConcurrentQyMap<String, Object> ctxInfo = new ConcurrentQyMap<>();
+                updateSegCtxInfo(ctxHashCode, ctxInfo, header, segmentationInfo, readBytes(in, readableSize));
+            }
+        } else {
+            bodySize -= segBody.length;
+            if (readableSize >= bodySize) {
+                DECODE_TEMP_CACHE.remove(ctxHashCode);
+                readBytes = ArrayUtil.addAll(segBody, readBytes(in, bodySize));
+                parse.putMsg(readBytes);
+                log.debug("PartMsgId: {} the part {} of {}", parse.getPartition_id(), parse.getNumerator(), parse.getDenominator());
+                QyMsg merger = connector.merger(parse);
+                if (merger != null) {
+                    DECODE_TEMP_CACHE.remove(ctxHashCode);
+                    ctx.fireChannelRead(merger);
+                }
+            } else {
+                segBody = ArrayUtil.addAll(segBody, readBytes(in, readableSize));
+                updateSegCtxInfo(ctxHashCode, ctxData, header, segmentationInfo, segBody);
             }
         }
     }
@@ -176,9 +176,9 @@ public class BytesDecodeQyMsg extends ByteToMessageDecoder {
         if (bytes == null) return null;
         QyMsg qyMsg = decoder.createMsg(header);
         if (Objects.requireNonNull(qyMsg.getDataType()) == DataType.OBJECT) {
-            return IoUtil.deserializationObj(bytes, QyMsg.class);
+            return qyMsg.setDataMap(IoUtil.deserializationObj(bytes, DataMap.class));
         }
-        return JSON.parseObject(bytes, QyMsg.class);
+        return qyMsg.setDataMap(JSON.parseObject(bytes, DataMap.class));
     }
 
     /**
@@ -211,7 +211,7 @@ public class BytesDecodeQyMsg extends ByteToMessageDecoder {
             case OBJECT -> {
                 byte[] bytes = readBytes2(in, ctxHashCode, ctxInfo, header, body);
                 if (bytes == null) return null;
-                return IoUtil.deserializationObj(bytes, QyMsg.class);
+                return qyMsg.setDataMap(IoUtil.deserializationObj(bytes, DataMap.class));
             }
             case STREAM -> {
                 return streamDeal(in, ctxHashCode, ctxInfo, header, body);
@@ -219,7 +219,7 @@ public class BytesDecodeQyMsg extends ByteToMessageDecoder {
             default -> { //JSON FILE
                 byte[] bytes = readBytes2(in, ctxHashCode, ctxInfo, header, body);
                 if (bytes == null) return null;
-                return JSON.parseObject(bytes, QyMsg.class);
+                return qyMsg.setDataMap(JSON.parseObject(bytes, DataMap.class));
             }
         }
     }
@@ -232,11 +232,11 @@ public class BytesDecodeQyMsg extends ByteToMessageDecoder {
         if (DataType.JSON.equals(qyMsg.getDataType())) {
             byte[] bytes = readBytes2(in, ctxHashCode, ctxInfo, header, body);
             if (bytes == null) return null;
-            return JSON.parseObject(bytes, QyMsg.class);
+            return qyMsg.setDataMap(JSON.parseObject(bytes, DataMap.class));
         } else if (DataType.OBJECT.equals(qyMsg.getDataType())) {
             byte[] bytes = readBytes2(in, ctxHashCode, ctxInfo, header, body);
             if (bytes == null) return null;
-            return IoUtil.deserializationObj(bytes, QyMsg.class);
+            return qyMsg.setDataMap(IoUtil.deserializationObj(bytes, DataMap.class));
         } else {
             return streamDeal(in, ctxHashCode, ctxInfo, header, body);
         }

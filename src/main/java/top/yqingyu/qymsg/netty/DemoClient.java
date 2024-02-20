@@ -33,7 +33,7 @@ public class DemoClient {
             new Thread(() -> {
                 for (int j = 0; j < 1000; j++) {
                     try {
-                        Connection connection = client.pool.getConnection();
+                        Connection connection = client.getConnection();
                         LocalDateTime now = LocalDateTime.now();
                         connection.get(qyMsg);
                         longs.add(LocalDateTimeUtil.between(now, LocalDateTime.now(), ChronoUnit.MICROS));

@@ -8,10 +8,10 @@ import top.yqingyu.qymsg.QyMsg;
  * 样例消息处理样例，接收数据  进行响应处理。
  */
 @ChannelHandler.Sharable
-public class DemoMsgHandler extends QyMsgServerHandler {
+public class DemoServerMsgHandler extends QyMsgServerHandler {
     @Override
     protected QyMsg handle(ChannelHandlerContext ctx, QyMsg msg) {
-        //无条件回显。
+        //无条件回写。
         return msg;
     }
 }

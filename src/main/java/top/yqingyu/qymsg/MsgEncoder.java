@@ -66,9 +66,9 @@ public class MsgEncoder {
     private void AC_Encode(byte[] header, QyMsg qyMsg, ArrayList<byte[]> list) throws IOException {
         byte[] body;
         if (Objects.requireNonNull(qyMsg.getDataType()) == DataType.OBJECT) {
-            body = IoUtil.objToSerializBytes(qyMsg);
+            body = IoUtil.objToSerializBytes(qyMsg.Data());
         } else {
-            body = JSON.toJSONString(qyMsg).getBytes(StandardCharsets.UTF_8);
+            body = JSON.toJSONBytes(qyMsg.Data());
         }
         OUT_OF_LENGTH_MSG_Encode(body, header, list);
     }
@@ -97,14 +97,14 @@ public class MsgEncoder {
 
         byte[] body;
         switch (qyMsg.getDataType()) {
-            case OBJECT -> body = IoUtil.objToSerializBytes(qyMsg);
+            case OBJECT -> body = IoUtil.objToSerializBytes(qyMsg.Data());
 
             case STRING -> body = (qyMsg.getFrom() + MsgHelper.gainMsg(qyMsg)).getBytes(StandardCharsets.UTF_8);
 
             case STREAM ->
                     body = ArrayUtil.addAll(qyMsg.getFrom().getBytes(StandardCharsets.UTF_8), (byte[]) MsgHelper.gainObjMsg(qyMsg));
             // JSON FILE
-            default -> body = JSON.toJSONString(qyMsg).getBytes(StandardCharsets.UTF_8);
+            default -> body = JSON.toJSONBytes(qyMsg.Data());
 
         }
         OUT_OF_LENGTH_MSG_Encode(body, header, list);
@@ -120,9 +120,9 @@ public class MsgEncoder {
     private void ERR_MSG_Encode(byte[] header, QyMsg qyMsg, ArrayList<byte[]> list) throws IOException {
         byte[] body;
         if (DataType.JSON.equals(qyMsg.getDataType())) {
-            body = JSON.toJSONString(qyMsg).getBytes(StandardCharsets.UTF_8);
+            body = JSON.toJSONBytes(qyMsg.Data());
         } else if (DataType.OBJECT.equals(qyMsg.getDataType())) {
-            body = IoUtil.objToSerializBytes(qyMsg);
+            body = IoUtil.objToSerializBytes(qyMsg.Data());
         } else {
             body = (qyMsg.getFrom() + MsgHelper.gainMsg(qyMsg)).getBytes(StandardCharsets.UTF_8);
         }
