@@ -6,9 +6,9 @@ git_sync:
   stage: git_sync
   script: 
     - cd /data/mycode/QyMsg
-    - git pull gitlab master
-    - git push gitee master
-    - git push gitlab master
+    - git pull gitlab master:master
+    - git push --mirror github
+    - git push --mirror gitee
 
 build-job:       # This job runs in the build stage, which runs first.
   stage: install
