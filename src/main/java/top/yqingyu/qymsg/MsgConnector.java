@@ -7,6 +7,7 @@ import top.yqingyu.common.utils.ArrayUtil;
 import top.yqingyu.common.utils.IoUtil;
 import top.yqingyu.common.utils.LocalDateTimeUtil;
 import top.yqingyu.common.utils.ThreadUtil;
+import top.yqingyu.common.qydata.DataMap;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -54,9 +55,9 @@ public class MsgConnector implements Runnable {
             out.setSegmentation(false);
             out.setFrom(qyMsg.getFrom());
             if (DataType.JSON.equals(dataType)) {
-                out = JSON.parseObject(buf.get(), QyMsg.class);
+                out.setDataMap(JSON.parseObject(buf.get(), DataMap.class));
             } else if (DataType.OBJECT.equals(dataType)) {
-                out = IoUtil.deserializationObj(buf.get(), QyMsg.class);
+                out = out.setDataMap(IoUtil.deserializationObj(buf.get(), DataMap.class));
             } else if (DataType.STRING.equals(dataType)) {
                 String s = new String(buf.get(), StandardCharsets.UTF_8);
                 out.putMsg(s);
