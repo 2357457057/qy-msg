@@ -251,7 +251,6 @@ public class MsgDecoder {
     }
 
     public void setSegmentInfo(QyMsg msg, byte[] array) {
-        log.warn(new String(array));
         try {
             msg.setPartition_id(new String(array, PARTITION_ID_IDX_START, PARTITION_ID_IDX_END, StandardCharsets.UTF_8));
             msg.setNumerator(RadixUtil.byte2Radix(ArrayUtil.subarray(array, NUMERATOR_IDX_START, NUMERATOR_IDX_END), transfer.MSG_LENGTH_RADIX));
@@ -263,7 +262,6 @@ public class MsgDecoder {
     }
 
     public QyMsg createMsg(byte[] header) {
-        log.warn(new String(header));
         MsgType msgType;
         try {
             msgType = MsgTransfer.CHAR_2_MSG_TYPE(header[MSG_TYPE_IDX]);
