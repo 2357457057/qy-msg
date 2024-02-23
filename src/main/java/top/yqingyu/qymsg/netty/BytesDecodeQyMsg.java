@@ -203,15 +203,20 @@ public class BytesDecodeQyMsg extends ByteToMessageDecoder {
 
     private void updateSegCtxInfo(int ctxHashCode, ConcurrentQyMap<String, Object> ctxInfo, byte[] header, byte[] segmentationInfo, byte[] body) {
         DECODE_TEMP_CACHE.put(ctxHashCode, ctxInfo);
-        ctxInfo.put("header", header);
-        ctxInfo.put("segmentationInfo", segmentationInfo);
-        ctxInfo.put("segBody", body);
+        if (header != null)
+            ctxInfo.put("header", header);
+        if (segmentationInfo != null)
+            ctxInfo.put("segmentationInfo", segmentationInfo);
+        if (body != null)
+            ctxInfo.put("segBody", body);
     }
 
     private void updateSingleCtxInfo(int ctxHashCode, ConcurrentQyMap<String, Object> ctxInfo, byte[] header, byte[] body) {
         DECODE_TEMP_CACHE.put(ctxHashCode, ctxInfo);
-        ctxInfo.put("header", header);
-        ctxInfo.put("singleBody", body);
+        if (header != null)
+            ctxInfo.put("header", header);
+        if (body != null)
+            ctxInfo.put("singleBody", body);
     }
 
 
