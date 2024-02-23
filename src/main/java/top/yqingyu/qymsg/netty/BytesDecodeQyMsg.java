@@ -34,9 +34,17 @@ public class BytesDecodeQyMsg extends ByteToMessageDecoder {
         decoder = new MsgDecoder(transfer);
     }
 
-
     @Override
     protected void decode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) throws Exception {
+        try {
+            decode0(ctx, in, out);
+        } catch (Throwable w) {
+            log.error("msg decode error", w);
+            throw w;
+        }
+    }
+
+    protected void decode0(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) throws Exception {
         int ctxHashCode = ctx.hashCode();
         byte[] header = null;
         byte[] segmentationInfo = null;
@@ -74,6 +82,8 @@ public class BytesDecodeQyMsg extends ByteToMessageDecoder {
                 return;
             }
         }
+
+        log.warn(new String(header, StandardCharsets.UTF_8));
 
         boolean segmentation;
         try {
