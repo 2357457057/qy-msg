@@ -3,11 +3,10 @@ package top.yqingyu.qymsg;
 import com.alibaba.fastjson2.JSON;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import top.yqingyu.common.qydata.DataMap;
 import top.yqingyu.common.utils.ArrayUtil;
 import top.yqingyu.common.utils.IoUtil;
 import top.yqingyu.common.utils.LocalDateTimeUtil;
-import top.yqingyu.common.utils.ThreadUtil;
-import top.yqingyu.common.qydata.DataMap;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -23,7 +22,7 @@ public class MsgConnector implements Runnable {
     private final ConcurrentHashMap<String, ArrayList<QyMsg>> MSG_CONTAINER = new ConcurrentHashMap<>();
     public static final Logger log = LoggerFactory.getLogger(MsgConnector.class);
 
-    private long clearTime;
+    private final long clearTime;
 
     public MsgConnector(long clearTime) {
         this.clearTime = clearTime;
