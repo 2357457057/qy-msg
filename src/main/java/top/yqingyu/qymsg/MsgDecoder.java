@@ -47,40 +47,27 @@ public class MsgDecoder {
         if (!runFlag.get()) {
             return null;
         }
-        boolean segmentation;
-        try {
-            segmentation = MsgTransfer.SEGMENTATION_2_BOOLEAN(headerBytes[SEGMENTATION_IDX]);
-        } catch (Exception e) {
-            throw handleException(e, "非法分片标识", headerBytes);
-        }
-        if (segmentation) {
-            int msgLength = getMsgLength(headerBytes);     //后五位
-            QyMsg parse = createMsg(headerBytes);
+        QyMsg parse = createMsg(headerBytes);
+
+        if (parse.isSegmentation()) {
             headerBytes = IoUtil.readBytes3(socket, SEGMENTATION_INFO_LENGTH, runFlag);
             setSegmentInfo(parse, headerBytes);
-            headerBytes = IoUtil.readBytes3(socket, msgLength, runFlag);
-            parse.putMsg(headerBytes);
+            parse.putMsg(IoUtil.readBytes3(socket, parse.getBodySize(), runFlag));
             log.debug("PartMsgId: {} the part {} of {}", parse.getPartition_id(), parse.getNumerator(), parse.getDenominator());
             return connector.merger(parse);
         } else {
-            MsgType msgType;
-            try {
-                msgType = MsgTransfer.CHAR_2_MSG_TYPE(headerBytes[MSG_TYPE_IDX]);
-            } catch (Exception e) {
-                throw handleException(e, "非法的消息类型", headerBytes);
-            }
-            switch (msgType) {
+            switch (parse.getMsgType()) {
                 case AC -> {
-                    return AC_Decode(headerBytes, socket, runFlag);
+                    return AC_Decode(parse, socket, runFlag);
                 }
                 case HEART_BEAT -> {
-                    return HEART_BEAT_Decode(headerBytes, socket, runFlag);
+                    return parse;
                 }
                 case ERR_MSG -> {
-                    return ERR_MSG_Decode(headerBytes, socket, runFlag);
+                    return ERR_MSG_Decode(parse, socket, runFlag);
                 }
                 default -> {
-                    return NORM_MSG_Decode(headerBytes, socket, runFlag);
+                    return NORM_MSG_Decode(parse, socket, runFlag);
                 }
             }
         }
@@ -95,19 +82,13 @@ public class MsgDecoder {
 
         byte[] header = IoUtil.readBytes(socketChannel, HEADER_LENGTH);
         Thread.sleep(sleep);
-        boolean segmentation;
-        try {
-            segmentation = MsgTransfer.SEGMENTATION_2_BOOLEAN(header[SEGMENTATION_IDX]);
-        } catch (Exception e) {
-            throw handleException(e, "非法分片标识", header);
-        }
 
-        if (segmentation) {
-            int length = getMsgLength(header);
-            QyMsg parse = createMsg(header);
+        QyMsg parse = createMsg(header);
+
+        if (parse.isSegmentation()) {
             header = IoUtil.readBytes(socketChannel, SEGMENTATION_INFO_LENGTH);
             setSegmentInfo(parse, header);
-            header = IoUtil.readBytes(socketChannel, length);
+            header = IoUtil.readBytes(socketChannel, parse.getBodySize());
             parse.putMsg(header);
             log.debug("PartMsgId: {} the part {} of {}", parse.getPartition_id(), parse.getNumerator(), parse.getDenominator());
             return connector.merger(parse);
@@ -120,16 +101,16 @@ public class MsgDecoder {
             }
             switch (msgType) {
                 case AC -> {
-                    return AC_Decode(header, socketChannel);
+                    return AC_Decode(parse, socketChannel);
                 }
                 case HEART_BEAT -> {
-                    return HEART_BEAT_Decode(header, socketChannel);
+                    return parse;
                 }
                 case ERR_MSG -> {
-                    return ERR_MSG_Decode(header, socketChannel);
+                    return ERR_MSG_Decode(parse, socketChannel);
                 }
                 default -> {
-                    return NORM_MSG_Decode(header, socketChannel);
+                    return NORM_MSG_Decode(parse, socketChannel);
                 }
             }
         }
@@ -141,32 +122,21 @@ public class MsgDecoder {
      *
      * @param socket socket
      */
-    private QyMsg AC_Decode(byte[] header, Socket socket, AtomicBoolean runFlag) throws IOException, ClassNotFoundException {
-        QyMsg qyMsg = createMsg(header);
-        if (Objects.requireNonNull(qyMsg.getDataType()) == DataType.OBJECT) {
-            return qyMsg.setDataMap(IoUtil.deserializationObj(IoUtil.readBytes3(socket, getMsgLength(header), runFlag), DataMap.class));
-        }
-        return qyMsg.setDataMap(JSON.parseObject(IoUtil.readBytes3(socket, getMsgLength(header), runFlag), DataMap.class));
-    }
+    private QyMsg AC_Decode(QyMsg qyMsg, Socket socket, AtomicBoolean runFlag) throws IOException, ClassNotFoundException {
 
-    /**
-     * 心跳消息组装
-     */
-    private QyMsg HEART_BEAT_Decode(byte[] header, Socket socket, AtomicBoolean runFlag) throws IOException {
-        QyMsg qyMsg = createMsg(header);
-        byte[] bytes = IoUtil.readBytes3(socket, getMsgLength(header), runFlag);
-        qyMsg.setFrom(new String(bytes, StandardCharsets.UTF_8));
-        return qyMsg;
+        if (DataType.OBJECT.equals(qyMsg.getDataType())) {
+            return qyMsg.setDataMap(IoUtil.deserializationObj(IoUtil.readBytes3(socket, qyMsg.getBodySize(), runFlag), DataMap.class));
+        }
+        return qyMsg.setDataMap(JSON.parseObject(IoUtil.readBytes3(socket, qyMsg.getBodySize(), runFlag), DataMap.class));
     }
 
     /**
      * 常规消息组装
      */
-    private QyMsg NORM_MSG_Decode(byte[] header, Socket socket, AtomicBoolean runFlag) throws IOException, ClassNotFoundException {
-        QyMsg qyMsg = createMsg(header);
+    private QyMsg NORM_MSG_Decode(QyMsg qyMsg, Socket socket, AtomicBoolean runFlag) throws IOException, ClassNotFoundException {
         switch (qyMsg.getDataType()) {
             case STRING -> {
-                byte[] bytes = IoUtil.readBytes3(socket, getMsgLength(header), runFlag);
+                byte[] bytes = IoUtil.readBytes3(socket, qyMsg.getBodySize(), runFlag);
                 String s = new String(bytes, StandardCharsets.UTF_8);
                 String from = s.substring(0, CLIENT_ID_LENGTH);
                 String msg = s.substring(CLIENT_ID_LENGTH);
@@ -175,13 +145,13 @@ public class MsgDecoder {
                 return qyMsg;
             }
             case OBJECT -> {
-                return qyMsg.setDataMap(IoUtil.deserializationObj(IoUtil.readBytes3(socket, getMsgLength(header), runFlag), DataMap.class));
+                return qyMsg.setDataMap(IoUtil.deserializationObj(IoUtil.readBytes3(socket, qyMsg.getBodySize(), runFlag), DataMap.class));
             }
             case STREAM -> {
-                return streamDeal(header, socket, runFlag);
+                return streamDeal(qyMsg, socket, runFlag);
             }
             default -> { //JSON\FILE
-                return qyMsg.setDataMap(JSON.parseObject(IoUtil.readBytes3(socket, getMsgLength(header), runFlag), DataMap.class));
+                return qyMsg.setDataMap(JSON.parseObject(IoUtil.readBytes3(socket, qyMsg.getBodySize(), runFlag), DataMap.class));
             }
         }
     }
@@ -189,14 +159,14 @@ public class MsgDecoder {
     /**
      * 异常消息组装
      */
-    private QyMsg ERR_MSG_Decode(byte[] header, Socket socket, AtomicBoolean runFlag) throws IOException, ClassNotFoundException {
-        QyMsg qyMsg = createMsg(header);
+    private QyMsg ERR_MSG_Decode(QyMsg qyMsg, Socket socket, AtomicBoolean runFlag) throws IOException, ClassNotFoundException {
+
         if (DataType.JSON.equals(qyMsg.getDataType())) {
-            return qyMsg.setDataMap(JSON.parseObject(IoUtil.readBytes3(socket, getMsgLength(header), runFlag), DataMap.class));
+            return qyMsg.setDataMap(JSON.parseObject(IoUtil.readBytes3(socket, qyMsg.getBodySize(), runFlag), DataMap.class));
         } else if (DataType.OBJECT.equals(qyMsg.getDataType())) {
-            return qyMsg.setDataMap(IoUtil.deserializationObj(IoUtil.readBytes3(socket, getMsgLength(header), runFlag), DataMap.class));
+            return qyMsg.setDataMap(IoUtil.deserializationObj(IoUtil.readBytes3(socket, qyMsg.getBodySize(), runFlag), DataMap.class));
         } else {
-            return streamDeal(header, socket, runFlag);
+            return streamDeal(qyMsg, socket, runFlag);
         }
     }
 
@@ -205,58 +175,40 @@ public class MsgDecoder {
      *
      * @author YYJ
      */
-    private QyMsg streamDeal(byte[] header, Socket socket, AtomicBoolean runFlag) throws IOException {
-        QyMsg qyMsg = createMsg(header);
-        byte[] bytes = IoUtil.readBytes3(socket, CLIENT_ID_LENGTH, runFlag);
-        qyMsg.setFrom(new String(bytes, StandardCharsets.UTF_8));
-        qyMsg.putMsg(IoUtil.readBytes3(socket, getMsgLength(header) - CLIENT_ID_LENGTH, runFlag));
+    private QyMsg streamDeal(QyMsg qyMsg, Socket socket, AtomicBoolean runFlag) throws IOException {
+        qyMsg.putMsg(IoUtil.readBytes3(socket, qyMsg.getBodySize(), runFlag));
         return qyMsg;
     }
 
     /**
      * 认证消息解码
      */
-    private QyMsg AC_Decode(byte[] header, SocketChannel socketChannel) throws IOException, ClassNotFoundException {
-        QyMsg qyMsg = createMsg(header);
+    private QyMsg AC_Decode(QyMsg qyMsg, SocketChannel socketChannel) throws IOException, ClassNotFoundException {
         if (Objects.requireNonNull(qyMsg.getDataType()).equals(DataType.OBJECT)) {
-            return qyMsg.setDataMap(IoUtil.deserializationObj(IoUtil.readBytes(socketChannel, getMsgLength(header)), DataMap.class));
+            return qyMsg.setDataMap(IoUtil.deserializationObj(IoUtil.readBytes(socketChannel, qyMsg.getBodySize()), DataMap.class));
         }
-        return qyMsg.setDataMap(JSON.parseObject(IoUtil.readBytes(socketChannel, getMsgLength(header)), DataMap.class));
+        return qyMsg.setDataMap(JSON.parseObject(IoUtil.readBytes(socketChannel, qyMsg.getBodySize()), DataMap.class));
     }
 
-    /**
-     * 心跳消息组装
-     */
-    private QyMsg HEART_BEAT_Decode(byte[] header, SocketChannel socketChannel) throws IOException {
-        QyMsg qyMsg = createMsg(header);
-        byte[] bytes = IoUtil.readBytes(socketChannel, getMsgLength(header));
-        qyMsg.setFrom(new String(bytes, StandardCharsets.UTF_8));
-        return qyMsg;
-    }
 
     /**
      * 常规消息组装
      */
-    private QyMsg NORM_MSG_Decode(byte[] header, SocketChannel socketChannel) throws IOException, ClassNotFoundException {
-        QyMsg qyMsg = createMsg(header);
+    private QyMsg NORM_MSG_Decode(QyMsg qyMsg, SocketChannel socketChannel) throws IOException, ClassNotFoundException {
         switch (qyMsg.getDataType()) {
             case STRING -> {
-                byte[] bytes = IoUtil.readBytes(socketChannel, getMsgLength(header));
-                String s = new String(bytes, StandardCharsets.UTF_8);
-                String from = s.substring(0, CLIENT_ID_LENGTH);
-                String msg = s.substring(CLIENT_ID_LENGTH);
-                qyMsg.setFrom(from);
-                qyMsg.putMsg(msg);
+                byte[] bytes = IoUtil.readBytes(socketChannel, qyMsg.getBodySize());
+                qyMsg.putMsg(new String(bytes, StandardCharsets.UTF_8));
                 return qyMsg;
             }
             case OBJECT -> {
-                return qyMsg.setDataMap(IoUtil.deserializationObj(IoUtil.readBytes(socketChannel, getMsgLength(header)), DataMap.class));
+                return qyMsg.setDataMap(IoUtil.deserializationObj(IoUtil.readBytes(socketChannel, qyMsg.getBodySize()), DataMap.class));
             }
             case STREAM -> {
-                return streamDeal(header, socketChannel);
+                return streamDeal(qyMsg, socketChannel);
             }
             default -> { //JSON FILE
-                return qyMsg.setDataMap(JSON.parseObject(IoUtil.readBytes(socketChannel, getMsgLength(header)), DataMap.class));
+                return qyMsg.setDataMap(JSON.parseObject(IoUtil.readBytes(socketChannel, qyMsg.getBodySize()), DataMap.class));
             }
         }
     }
@@ -264,14 +216,14 @@ public class MsgDecoder {
     /**
      * 异常消息组装
      */
-    private QyMsg ERR_MSG_Decode(byte[] header, SocketChannel socketChannel) throws Exception {
-        QyMsg qyMsg = createMsg(header);
+    private QyMsg ERR_MSG_Decode(QyMsg qyMsg, SocketChannel socketChannel) throws Exception {
+
         if (DataType.JSON.equals(qyMsg.getDataType())) {
-            return qyMsg.setDataMap(JSON.parseObject(IoUtil.readBytes(socketChannel, getMsgLength(header)), DataMap.class));
+            return qyMsg.setDataMap(JSON.parseObject(IoUtil.readBytes(socketChannel, qyMsg.getBodySize()), DataMap.class));
         } else if (DataType.OBJECT.equals(qyMsg.getDataType())) {
-            return qyMsg.setDataMap(IoUtil.deserializationObj(IoUtil.readBytes(socketChannel, getMsgLength(header)), DataMap.class));
+            return qyMsg.setDataMap(IoUtil.deserializationObj(IoUtil.readBytes(socketChannel, qyMsg.getBodySize()), DataMap.class));
         } else {
-            return streamDeal(header, socketChannel);
+            return streamDeal(qyMsg, socketChannel);
         }
     }
 
@@ -280,11 +232,8 @@ public class MsgDecoder {
      *
      * @author YYJ
      */
-    private QyMsg streamDeal(byte[] header, SocketChannel socketChannel) throws IOException {
-        QyMsg qyMsg = createMsg(header);
-        byte[] bytes = IoUtil.readBytes(socketChannel, CLIENT_ID_LENGTH);
-        qyMsg.setFrom(new String(bytes, StandardCharsets.UTF_8));
-        qyMsg.putMsg(IoUtil.readBytes(socketChannel, getMsgLength(header) - CLIENT_ID_LENGTH));
+    private QyMsg streamDeal(QyMsg qyMsg, SocketChannel socketChannel) throws IOException {
+        qyMsg.putMsg(IoUtil.readBytes(socketChannel, qyMsg.getBodySize()));
         return qyMsg;
     }
 
@@ -334,6 +283,7 @@ public class MsgDecoder {
         QyMsg qyMsg = new QyMsg(msgType, dataType);
         qyMsg.setFrom(new String(header, MSG_FROM_IDX_START, CLIENT_ID_LENGTH, StandardCharsets.UTF_8));
         qyMsg.setSegmentation(segmentation);
+        qyMsg.setBodySize(getMsgLength(header));
         return qyMsg;
     }
 }

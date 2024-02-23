@@ -37,72 +37,54 @@ public class BytesDecodeQyMsg extends ByteToMessageDecoder {
     @Override
     protected void decode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) throws Exception {
         try {
-            decode0(ctx, in, out);
+            decode0(ctx, in);
         } catch (Throwable w) {
-            log.error("msg decode error", w);
+            log.error("QyMsg decode error", w);
             throw w;
         }
     }
 
-    protected void decode0(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) throws Exception {
+    protected void decode0(ChannelHandlerContext ctx, ByteBuf in) throws Exception {
         int ctxHashCode = ctx.hashCode();
-        byte[] header = null;
-        byte[] segmentationInfo = null;
-        byte[] segBody = null;
-        byte[] singleBody = null;
-        ConcurrentQyMap<String, Object> ctxData = DECODE_TEMP_CACHE.get(ctxHashCode);
-        if (ctxData != null) {
-            header = ctxData.get("header", byte[].class);
-            segmentationInfo = ctxData.get("segmentationInfo", byte[].class);
-            segBody = ctxData.get("segBody", byte[].class);
-            singleBody = ctxData.get("singleBody", byte[].class);
-        }
-        if (header == null) {
-            int readLength = in.readableBytes();
-            if (readLength >= HEADER_LENGTH) {
-                readLength = HEADER_LENGTH;
+        ConcurrentQyMap<String, Object> ctxData = DECODE_TEMP_CACHE.computeIfAbsent(ctxHashCode, k -> new ConcurrentQyMap<>());
+        byte[] header = ctxData.get("header", byte[].class);
+        byte[] segmentationInfo = ctxData.get("segmentationInfo", byte[].class);
+        byte[] msgBody = ctxData.get("body", byte[].class);
+        QyMsg msg = ctxData.get("obj", QyMsg.class);
+
+        if (msg == null) {
+            if (header == null) {
+                int readLength = in.readableBytes();
+                if (readLength >= HEADER_LENGTH) {
+                    readLength = HEADER_LENGTH;
+                }
+                header = updateHeader(ctxData, readBytes(in, readLength));
+                if (readLength < HEADER_LENGTH) {
+                    return;
+                }
+            } else if (header.length != HEADER_LENGTH) {
+                int remainingHeaderLength = HEADER_LENGTH - header.length;
+                int readLength = in.readableBytes();
+                if (readLength >= remainingHeaderLength) {
+                    readLength = remainingHeaderLength;
+                }
+                header = updateHeader(ctxData, readBytes(in, readLength));
+                if (header.length != HEADER_LENGTH) {
+                    return;
+                }
             }
-            header = readBytes(in, readLength);
-            log.warn(new String(header, StandardCharsets.UTF_8));
-            updateSingleCtxInfo(ctxHashCode, new ConcurrentQyMap<>(), header, null);
-            if (readLength < HEADER_LENGTH) {
-                return;
-            }
-        } else if (header.length != HEADER_LENGTH) {
-            int remainingHeaderLength = HEADER_LENGTH - header.length;
-            int readLength = in.readableBytes();
-            if (readLength >= remainingHeaderLength) {
-                readLength = remainingHeaderLength;
-            }
-            header = ArrayUtil.addAll(header, readBytes(in, readLength));
-            log.warn(new String(header, StandardCharsets.UTF_8));
-            updateSingleCtxInfo(ctxHashCode, ctxData, header, null);
-            if (header.length != HEADER_LENGTH) {
-                return;
-            }
+            msg = decoder.createMsg(header);
+            ctxData.put("obj", msg);
         }
 
 
-        boolean segmentation;
-        try {
-            segmentation = MsgTransfer.SEGMENTATION_2_BOOLEAN(header[SEGMENTATION_IDX]);
-        } catch (Exception e) {
-            throw decoder.handleException(e, "非法分片标识", header);
-        }
-
-        if (!segmentation) {
-            MsgType msgType;
-            try {
-                msgType = MsgTransfer.CHAR_2_MSG_TYPE(header[MSG_TYPE_IDX]);
-            } catch (Exception e) {
-                throw decoder.handleException(e, "非法的消息标识", header);
-            }
+        if (!msg.isSegmentation()) {
             QyMsg qyMsg;
-            switch (msgType) {
-                case AC -> qyMsg = AC_Disassembly(in, ctxHashCode, ctxData, header, singleBody);
-                case HEART_BEAT -> qyMsg = HEART_BEAT_Disassembly(in, ctxHashCode, ctxData, header, singleBody);
-                case ERR_MSG -> qyMsg = ERR_MSG_Disassembly(in, ctxHashCode, ctxData, header, singleBody);
-                default -> qyMsg = NORM_MSG_Disassembly(in, ctxHashCode, ctxData, header, singleBody);
+            switch (msg.getMsgType()) {
+                case AC -> qyMsg = AC_Disassembly(in, ctxData, msgBody);
+                case HEART_BEAT -> qyMsg = msg;
+                case ERR_MSG -> qyMsg = ERR_MSG_Disassembly(in, ctxData, msgBody);
+                default -> qyMsg = NORM_MSG_Disassembly(in, ctxData, msgBody);
             }
             if (qyMsg != null) {
                 DECODE_TEMP_CACHE.remove(ctxHashCode);
@@ -110,14 +92,13 @@ public class BytesDecodeQyMsg extends ByteToMessageDecoder {
             }
             return;
         }
-        QyMsg parse = decoder.createMsg(header);
+
         if (segmentationInfo == null) {
             int readLength = in.readableBytes();
             if (readLength >= SEGMENTATION_INFO_LENGTH) {
                 readLength = SEGMENTATION_INFO_LENGTH;
             }
-            segmentationInfo = readBytes(in, readLength);
-            updateSegCtxInfo(ctxHashCode, ctxData == null ? new ConcurrentQyMap<>() : ctxData, header, segmentationInfo, null);
+            segmentationInfo = updateSegmentationInfo(ctxData, readBytes(in, readLength));
             if (readLength < SEGMENTATION_INFO_LENGTH) {
                 return;
             }
@@ -127,45 +108,41 @@ public class BytesDecodeQyMsg extends ByteToMessageDecoder {
             if (readLength >= remainingHeaderLength) {
                 readLength = remainingHeaderLength;
             }
-            segmentationInfo = ArrayUtil.addAll(segmentationInfo, readBytes(in, readLength));
-            updateSegCtxInfo(ctxHashCode, ctxData, header, segmentationInfo, null);
+            segmentationInfo = updateSegmentationInfo(ctxData, readBytes(in, readLength));
             if (segmentationInfo.length != SEGMENTATION_INFO_LENGTH) {
                 return;
             }
         }
-        decoder.setSegmentInfo(parse, segmentationInfo);
-        int bodySize = decoder.getMsgLength(header);
+
+        decoder.setSegmentInfo(msg, segmentationInfo);
+        log.debug("PartMsgId: {} the part {} of {}", msg.getPartition_id(), msg.getNumerator(), msg.getDenominator());
+
+        int bodySize = msg.getBodySize();
         int readableSize = in.readableBytes();
-//TODO        log.debug("PartMsgId: {} the part {} of {}", parse.getPartition_id(), parse.getNumerator(), parse.getDenominator());
-        if (segBody == null) {
+        if (msgBody == null) {
             if (readableSize >= bodySize) {
                 DECODE_TEMP_CACHE.remove(ctxHashCode);
-                parse.putMsg(readBytes(in, bodySize));
-                log.debug("PartMsgId: {} the part {} of {}", parse.getPartition_id(), parse.getNumerator(), parse.getDenominator());
-                QyMsg merger = connector.merger(parse);
+                msg.putMsg(readBytes(in, bodySize));
+                QyMsg merger = connector.merger(msg);
                 if (merger != null) {
-                    DECODE_TEMP_CACHE.remove(ctxHashCode);
                     ctx.fireChannelRead(merger);
                 }
-            } else {
-                updateSegCtxInfo(ctxHashCode, ctxData == null ? new ConcurrentQyMap<>() : ctxData, header, segmentationInfo, readBytes(in, readableSize));
+                return;
             }
-        } else {
-            bodySize -= segBody.length;
-            if (readableSize >= bodySize) {
-                DECODE_TEMP_CACHE.remove(ctxHashCode);
-                parse.putMsg(ArrayUtil.addAll(segBody, readBytes(in, bodySize)));
-                log.debug("PartMsgId: {} the part {} of {}", parse.getPartition_id(), parse.getNumerator(), parse.getDenominator());
-                QyMsg merger = connector.merger(parse);
-                if (merger != null) {
-                    DECODE_TEMP_CACHE.remove(ctxHashCode);
-                    ctx.fireChannelRead(merger);
-                }
-            } else {
-                segBody = ArrayUtil.addAll(segBody, readBytes(in, readableSize));
-                updateSegCtxInfo(ctxHashCode, ctxData, header, segmentationInfo, segBody);
-            }
+            updateBody(ctxData, readBytes(in, readableSize));
+            return;
         }
+        bodySize -= msgBody.length;
+        if (readableSize >= bodySize) {
+            DECODE_TEMP_CACHE.remove(ctxHashCode);
+            msg.putMsg(ArrayUtil.addAll(msgBody, readBytes(in, bodySize)));
+            QyMsg merger = connector.merger(msg);
+            if (merger != null) {
+                ctx.fireChannelRead(merger);
+            }
+            return;
+        }
+        updateBody(ctxData, readBytes(in, readableSize));
     }
 
     private byte[] readBytes(ByteBuf buf, int length) {
@@ -174,45 +151,45 @@ public class BytesDecodeQyMsg extends ByteToMessageDecoder {
         return readBytes;
     }
 
-    private byte[] readBytes2(ByteBuf in, int ctxHashCode, ConcurrentQyMap<String, Object> ctxInfo, byte[] header, byte[] body) {
-        int bodySize = decoder.getMsgLength(header);
+    private byte[] readBytes2(ByteBuf in, ConcurrentQyMap<String, Object> ctxData, byte[] body) {
+        int bodySize = ctxData.get("obj", QyMsg.class).getBodySize();
         int readableSize = in.readableBytes();
         if (body == null) {
             if (readableSize >= bodySize) {
                 return readBytes(in, bodySize);
-            } else {
-                updateSingleCtxInfo(ctxHashCode, ctxInfo == null ? new ConcurrentQyMap<>() : ctxInfo, header, readBytes(in, readableSize));
-                return null;
             }
-        } else {
-            bodySize -= body.length;
-            if (readableSize >= bodySize) {
-                return ArrayUtil.addAll(body, readBytes(in, bodySize));
-            } else {
-                body = ArrayUtil.addAll(body, readBytes(in, readableSize));
-                updateSingleCtxInfo(ctxHashCode, ctxInfo, header, body);
-                return null;
-            }
+            updateBody(ctxData, readBytes(in, readableSize));
+            return null;
         }
-
+        bodySize -= body.length;
+        if (readableSize >= bodySize) {
+            return ArrayUtil.addAll(body, readBytes(in, bodySize));
+        }
+        updateBody(ctxData, readBytes(in, readableSize));
+        return null;
     }
 
-    private void updateSegCtxInfo(int ctxHashCode, ConcurrentQyMap<String, Object> ctxInfo, byte[] header, byte[] segmentationInfo, byte[] body) {
-        DECODE_TEMP_CACHE.put(ctxHashCode, ctxInfo);
-        if (header != null)
-            ctxInfo.put("header", header);
-        if (segmentationInfo != null)
-            ctxInfo.put("segmentationInfo", segmentationInfo);
-        if (body != null)
-            ctxInfo.put("segBody", body);
+    private byte[] updateHeader(ConcurrentQyMap<String, Object> ctxInfo, byte[] data) {
+        return updateData(ctxInfo, "header", data);
     }
 
-    private void updateSingleCtxInfo(int ctxHashCode, ConcurrentQyMap<String, Object> ctxInfo, byte[] header, byte[] body) {
-        DECODE_TEMP_CACHE.put(ctxHashCode, ctxInfo);
-        if (header != null)
-            ctxInfo.put("header", header);
-        if (body != null)
-            ctxInfo.put("singleBody", body);
+    private byte[] updateSegmentationInfo(ConcurrentQyMap<String, Object> ctxInfo, byte[] data) {
+        return updateData(ctxInfo, "segmentationInfo", data);
+    }
+
+    private void updateBody(ConcurrentQyMap<String, Object> ctxInfo, byte[] data) {
+        updateData(ctxInfo, "body", data);
+    }
+
+    private byte[] updateData(ConcurrentQyMap<String, Object> ctxInfo, String key, byte[] data) {
+        if (data != null) {
+            byte[] bytes = ctxInfo.get(key, byte[].class);
+            if (bytes != null) {
+                data = ArrayUtil.addAll(bytes, data);
+            }
+            ctxInfo.put(key, data);
+        }
+        return data;
     }
 
 
@@ -221,53 +198,40 @@ public class BytesDecodeQyMsg extends ByteToMessageDecoder {
      *
      * @param in 流
      */
-    private QyMsg AC_Disassembly(ByteBuf in, int ctxHashCode, ConcurrentQyMap<String, Object> ctxInfo, byte[] header, byte[] body) throws IOException, ClassNotFoundException {
-        byte[] bytes = readBytes2(in, ctxHashCode, ctxInfo, header, body);
+    private QyMsg AC_Disassembly(ByteBuf in, ConcurrentQyMap<String, Object> ctxData, byte[] body) throws IOException, ClassNotFoundException {
+        byte[] bytes = readBytes2(in, ctxData, body);
         if (bytes == null) return null;
-        QyMsg qyMsg = decoder.createMsg(header);
+        QyMsg qyMsg = ctxData.get("obj", QyMsg.class);
         if (Objects.requireNonNull(qyMsg.getDataType()) == DataType.OBJECT) {
             return qyMsg.setDataMap(IoUtil.deserializationObj(bytes, DataMap.class));
         }
         return qyMsg.setDataMap(JSON.parseObject(bytes, DataMap.class));
     }
 
-    /**
-     * 心跳消息组装
-     */
-    private QyMsg HEART_BEAT_Disassembly(ByteBuf in, int ctxHashCode, ConcurrentQyMap<String, Object> ctxInfo, byte[] header, byte[] body) {
-        QyMsg qyMsg = decoder.createMsg(header);
-        byte[] bytes = readBytes2(in, ctxHashCode, ctxInfo, header, body);
-        if (bytes == null) return null;
-        qyMsg.setFrom(new String(bytes, StandardCharsets.UTF_8));
-        return qyMsg;
-    }
 
     /**
      * 常规消息组装
      */
-    private QyMsg NORM_MSG_Disassembly(ByteBuf in, int ctxHashCode, ConcurrentQyMap<String, Object> ctxInfo, byte[] header, byte[] body) throws IOException, ClassNotFoundException {
-        QyMsg qyMsg = decoder.createMsg(header);
+    private QyMsg NORM_MSG_Disassembly(ByteBuf in, ConcurrentQyMap<String, Object> ctxData, byte[] body) throws IOException, ClassNotFoundException {
+        QyMsg qyMsg = ctxData.get("obj", QyMsg.class);
         switch (qyMsg.getDataType()) {
             case STRING -> {
-                byte[] bytes = readBytes2(in, ctxHashCode, ctxInfo, header, body);
+                byte[] bytes = readBytes2(in, ctxData, body);
                 if (bytes == null) return null;
                 String s = new String(bytes, StandardCharsets.UTF_8);
-                String from = s.substring(0, CLIENT_ID_LENGTH);
-                String msg = s.substring(CLIENT_ID_LENGTH);
-                qyMsg.setFrom(from);
-                qyMsg.putMsg(msg);
+                qyMsg.putMsg(s);
                 return qyMsg;
             }
             case OBJECT -> {
-                byte[] bytes = readBytes2(in, ctxHashCode, ctxInfo, header, body);
+                byte[] bytes = readBytes2(in, ctxData, body);
                 if (bytes == null) return null;
                 return qyMsg.setDataMap(IoUtil.deserializationObj(bytes, DataMap.class));
             }
             case STREAM -> {
-                return streamDeal(in, ctxHashCode, ctxInfo, header, body);
+                return streamDeal(in, ctxData, body);
             }
             default -> { //JSON FILE
-                byte[] bytes = readBytes2(in, ctxHashCode, ctxInfo, header, body);
+                byte[] bytes = readBytes2(in, ctxData, body);
                 if (bytes == null) return null;
                 return qyMsg.setDataMap(JSON.parseObject(bytes, DataMap.class));
             }
@@ -277,18 +241,21 @@ public class BytesDecodeQyMsg extends ByteToMessageDecoder {
     /**
      * 异常消息组装
      */
-    private QyMsg ERR_MSG_Disassembly(ByteBuf in, int ctxHashCode, ConcurrentQyMap<String, Object> ctxInfo, byte[] header, byte[] body) throws IOException, ClassNotFoundException {
-        QyMsg qyMsg = decoder.createMsg(header);
+    private QyMsg ERR_MSG_Disassembly(ByteBuf in, ConcurrentQyMap<String, Object> ctxData, byte[] body) throws IOException, ClassNotFoundException {
+        QyMsg qyMsg = ctxData.get("obj", QyMsg.class);
         if (DataType.JSON.equals(qyMsg.getDataType())) {
-            byte[] bytes = readBytes2(in, ctxHashCode, ctxInfo, header, body);
+            byte[] bytes = readBytes2(in, ctxData, body);
             if (bytes == null) return null;
             return qyMsg.setDataMap(JSON.parseObject(bytes, DataMap.class));
         } else if (DataType.OBJECT.equals(qyMsg.getDataType())) {
-            byte[] bytes = readBytes2(in, ctxHashCode, ctxInfo, header, body);
+            byte[] bytes = readBytes2(in, ctxData, body);
             if (bytes == null) return null;
             return qyMsg.setDataMap(IoUtil.deserializationObj(bytes, DataMap.class));
         } else {
-            return streamDeal(in, ctxHashCode, ctxInfo, header, body);
+            qyMsg = streamDeal(in, ctxData, body);
+            if (qyMsg == null) return null;
+            qyMsg.putMsg(new String((byte[]) MsgHelper.gainObjMsg(qyMsg), StandardCharsets.UTF_8));
+            return qyMsg;
         }
     }
 
@@ -297,20 +264,11 @@ public class BytesDecodeQyMsg extends ByteToMessageDecoder {
      *
      * @author YYJ
      */
-    private QyMsg streamDeal(ByteBuf in, int ctxHashCode, ConcurrentQyMap<String, Object> ctxInfo, byte[] header, byte[] body) {
-        QyMsg qyMsg = decoder.createMsg(header);
-
-        byte[] bytes = readBytes2(in, ctxHashCode, ctxInfo, header, body);
+    private QyMsg streamDeal(ByteBuf in, ConcurrentQyMap<String, Object> ctxData, byte[] body) {
+        QyMsg qyMsg = ctxData.get("obj", QyMsg.class);
+        byte[] bytes = readBytes2(in, ctxData, body);
         if (bytes == null) return null;
-
-        byte[] from = new byte[CLIENT_ID_LENGTH];
-        System.arraycopy(bytes, 0, from, 0, CLIENT_ID_LENGTH);
-
-        body = new byte[decoder.getMsgLength(header) - CLIENT_ID_LENGTH];
-        System.arraycopy(bytes, CLIENT_ID_LENGTH, body, 0, CLIENT_ID_LENGTH);
-
-        qyMsg.setFrom(new String(from, StandardCharsets.UTF_8));
-        qyMsg.putMsg(body);
+        qyMsg.putMsg(bytes);
         return qyMsg;
     }
 

@@ -20,25 +20,50 @@ import static top.yqingyu.qymsg.Dict.QYMSG;
 @SuppressWarnings("all")
 public class QyMsg implements Serializable {
     private final static long serialVersionUID = -1854823182151532168L;
+    /**
+     * 消息类型
+     */
     private MsgType msgType;
+    /**
+     * 数据格式
+     */
     private DataType dataType;
 
-    //来自谁的消息
+    /**
+     * 来自谁的消息
+     **/
     private String from;
 
-    //发给谁的消息
+    /**
+     * 发给谁的消息
+     */
     private String to;
 
-    //是否分区
+    /**
+     * 是否分区
+     */
     private boolean segmentation;
 
-    //碎片ID
+    /**
+     * 碎片ID
+     */
     private String partition_id;
-
+    /**
+     * 分子
+     */
     private Integer numerator;
-    //分片
+    /**
+     * 分母
+     */
     private Integer denominator;
-    private DataMap dataMap = new DataMap(); //具体消息
+    /**
+     * 消息体
+     */
+    private DataMap dataMap = new DataMap();
+    /**
+     * 消息体长度
+     */
+    private Integer bodySize = 0;
 
     public QyMsg(MsgType msgType, DataType dataType) {
         this.msgType = msgType;
@@ -162,7 +187,15 @@ public class QyMsg implements Serializable {
         this.msgType = msgType;
     }
 
-    public QyMsg(MsgType msgType, DataType dataType, String from, String to, boolean segmentation, String partition_id, Integer numerator, Integer denominator, DataMap dataMap) {
+    public Integer getBodySize() {
+        return bodySize;
+    }
+
+    public void setBodySize(Integer bodySize) {
+        this.bodySize = bodySize;
+    }
+
+    public QyMsg(MsgType msgType, DataType dataType, String from, String to, boolean segmentation, String partition_id, Integer numerator, Integer denominator, DataMap dataMap, Integer bodySize) {
         this.msgType = msgType;
         this.dataType = dataType;
         this.from = from;
@@ -172,6 +205,7 @@ public class QyMsg implements Serializable {
         this.numerator = numerator;
         this.denominator = denominator;
         this.dataMap = dataMap;
+        this.bodySize = bodySize;
     }
 
     @Override

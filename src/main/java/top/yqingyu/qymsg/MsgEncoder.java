@@ -20,8 +20,6 @@ import static top.yqingyu.qymsg.Dict.*;
  *
  * @author YYJ
  * @version 1.0.0
- * @ClassNameEncodeMsg
- * @createTime 2022年09月06日 10:36:00
  */
 
 public class MsgEncoder {
@@ -53,7 +51,7 @@ public class MsgEncoder {
         log.warn(new String(header, StandardCharsets.UTF_8));
         switch (qyMsg.getMsgType()) {
             case AC -> AC_Encode(header, qyMsg, list);
-            case HEART_BEAT -> HEART_BEAT_Encode(header, qyMsg, list);
+            case HEART_BEAT -> HEART_BEAT_Encode(header, list);
             case ERR_MSG -> ERR_MSG_Encode(header, qyMsg, list);
             default -> NORM_MSG_Encode(header, qyMsg, list);
         }
@@ -82,14 +80,12 @@ public class MsgEncoder {
     /**
      * 心跳消息组装
      *
-     * @param qyMsg  消息体对象
      * @param header 消息头
      * @param list   返回的消息集合
      */
-    private void HEART_BEAT_Encode(byte[] header, QyMsg qyMsg, ArrayList<byte[]> list) {
+    private void HEART_BEAT_Encode(byte[] header, ArrayList<byte[]> list) {
         header[DATA_TYPE_IDX] = MsgTransfer.DATA_TYPE_2_CHAR(DataType.STRING);
-        byte[] body = qyMsg.getFrom().getBytes(StandardCharsets.UTF_8);
-        list.add(ArrayUtil.addAll(header, transfer.getLength(body), body));
+        list.add(header);
     }
 
     /**
@@ -105,10 +101,9 @@ public class MsgEncoder {
         switch (qyMsg.getDataType()) {
             case OBJECT -> body = IoUtil.objToSerializBytes(qyMsg.Data());
 
-            case STRING -> body = (qyMsg.getFrom() + MsgHelper.gainMsg(qyMsg)).getBytes(StandardCharsets.UTF_8);
+            case STRING -> body = MsgHelper.gainMsg(qyMsg).getBytes(StandardCharsets.UTF_8);
 
-            case STREAM ->
-                    body = ArrayUtil.addAll(qyMsg.getFrom().getBytes(StandardCharsets.UTF_8), (byte[]) MsgHelper.gainObjMsg(qyMsg));
+            case STREAM -> body = (byte[]) MsgHelper.gainObjMsg(qyMsg);
             // JSON FILE
             default -> body = JSON.toJSONBytes(qyMsg.Data());
 
@@ -130,7 +125,8 @@ public class MsgEncoder {
         } else if (DataType.OBJECT.equals(qyMsg.getDataType())) {
             body = IoUtil.objToSerializBytes(qyMsg.Data());
         } else {
-            body = (qyMsg.getFrom() + MsgHelper.gainMsg(qyMsg)).getBytes(StandardCharsets.UTF_8);
+            header[DATA_TYPE_IDX] = MsgTransfer.DATA_TYPE_2_CHAR(DataType.STRING);
+            body = MsgHelper.gainMsg(qyMsg).getBytes(StandardCharsets.UTF_8);
         }
         OUT_OF_LENGTH_MSG_Encode(body, header, list);
     }
