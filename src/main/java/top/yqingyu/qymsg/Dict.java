@@ -24,7 +24,7 @@ public interface Dict {
     Integer SEGMENTATION_IDX = 2;
     Integer MSG_FROM_IDX_START = 3;
     Integer BODY_LENGTH_LENGTH = 5;
-    Integer MSG_LENGTH_IDX_START = HEADER_LENGTH - 5;
+    Integer MSG_LENGTH_IDX_START = HEADER_LENGTH - BODY_LENGTH_LENGTH;
     Integer MSG_LENGTH_IDX_END = HEADER_LENGTH;
     /*==========================HEADER=============================*/
 
@@ -33,11 +33,11 @@ public interface Dict {
     Integer PARTITION_ID_IDX_START = 0;
     Integer PARTITION_ID_LENGTH = 16;
     Integer PARTITION_ID_IDX_END = PARTITION_ID_IDX_START + PARTITION_ID_LENGTH;
-    Integer NUMERATOR_IDX_START = 16;
-    Integer NUMERATOR_LENGTH = 2;
+    Integer NUMERATOR_IDX_START = PARTITION_ID_LENGTH;
+    Integer NUMERATOR_LENGTH = 3;
     Integer NUMERATOR_IDX_END = NUMERATOR_IDX_START + NUMERATOR_LENGTH;
-    Integer DENOMINATOR_IDX_START = 18;
-    Integer DENOMINATOR_LENGTH = 2;
+    Integer DENOMINATOR_IDX_START = NUMERATOR_IDX_END;
+    Integer DENOMINATOR_LENGTH = 3;
     Integer DENOMINATOR_IDX_END = DENOMINATOR_IDX_START + DENOMINATOR_LENGTH;
     Integer SEGMENTATION_INFO_LENGTH = PARTITION_ID_LENGTH + NUMERATOR_LENGTH + DENOMINATOR_LENGTH;
     /*==========================分片信息=============================*/

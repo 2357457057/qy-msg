@@ -304,7 +304,7 @@ public class MsgDecoder {
     public void setSegmentInfo(QyMsg msg, byte[] array) {
         try {
             String segmentationInfo = new String(array, StandardCharsets.UTF_8);
-            msg.setPartition_id(segmentationInfo.substring(PARTITION_ID_IDX_START, PARTITION_ID_IDX_END));
+            msg.setPartition_id(new String(array, PARTITION_ID_IDX_START, PARTITION_ID_IDX_END, StandardCharsets.UTF_8));
             msg.setNumerator(RadixUtil.byte2Radix(ArrayUtil.subarray(array, NUMERATOR_IDX_START, NUMERATOR_IDX_END), transfer.MSG_LENGTH_RADIX));
             msg.setDenominator(RadixUtil.byte2Radix(ArrayUtil.subarray(array, DENOMINATOR_IDX_START, DENOMINATOR_IDX_END), transfer.MSG_LENGTH_RADIX));
             msg.setSegmentation(true);
