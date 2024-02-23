@@ -48,7 +48,6 @@ public class BytesDecodeQyMsg extends ByteToMessageDecoder {
         int ctxHashCode = ctx.hashCode();
         byte[] header = null;
         byte[] segmentationInfo = null;
-        byte[] readBytes;
         byte[] segBody = null;
         byte[] singleBody = null;
         ConcurrentQyMap<String, Object> ctxData = DECODE_TEMP_CACHE.get(ctxHashCode);
@@ -58,8 +57,6 @@ public class BytesDecodeQyMsg extends ByteToMessageDecoder {
             segBody = ctxData.get("segBody", byte[].class);
             singleBody = ctxData.get("singleBody", byte[].class);
         }
-
-
         if (header == null) {
             int readLength = in.readableBytes();
             if (readLength >= HEADER_LENGTH) {
@@ -141,8 +138,7 @@ public class BytesDecodeQyMsg extends ByteToMessageDecoder {
         int readableSize = in.readableBytes();
         if (segBody == null) {
             if (readableSize >= bodySize) {
-                readBytes = readBytes(in, bodySize);
-                parse.putMsg(readBytes);
+                parse.putMsg(readBytes(in, bodySize));
                 log.debug("PartMsgId: {} the part {} of {}", parse.getPartition_id(), parse.getNumerator(), parse.getDenominator());
                 QyMsg merger = connector.merger(parse);
                 if (merger != null) {
@@ -156,8 +152,7 @@ public class BytesDecodeQyMsg extends ByteToMessageDecoder {
             bodySize -= segBody.length;
             if (readableSize >= bodySize) {
                 DECODE_TEMP_CACHE.remove(ctxHashCode);
-                readBytes = ArrayUtil.addAll(segBody, readBytes(in, bodySize));
-                parse.putMsg(readBytes);
+                parse.putMsg(ArrayUtil.addAll(segBody, readBytes(in, bodySize)));
                 log.debug("PartMsgId: {} the part {} of {}", parse.getPartition_id(), parse.getNumerator(), parse.getDenominator());
                 QyMsg merger = connector.merger(parse);
                 if (merger != null) {
@@ -184,8 +179,7 @@ public class BytesDecodeQyMsg extends ByteToMessageDecoder {
             if (readableSize >= bodySize) {
                 return readBytes(in, bodySize);
             } else {
-                ctxInfo = new ConcurrentQyMap<>();
-                updateSingleCtxInfo(ctxHashCode, ctxInfo, header, readBytes(in, readableSize));
+                updateSingleCtxInfo(ctxHashCode, ctxInfo == null ? new ConcurrentQyMap<>() : ctxInfo, header, readBytes(in, readableSize));
                 return null;
             }
         } else {
