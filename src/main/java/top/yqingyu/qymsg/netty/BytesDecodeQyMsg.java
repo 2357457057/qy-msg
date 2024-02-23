@@ -66,6 +66,7 @@ public class BytesDecodeQyMsg extends ByteToMessageDecoder {
                 readLength = HEADER_LENGTH;
             }
             header = readBytes(in, readLength);
+            log.warn(new String(header, StandardCharsets.UTF_8));
             if (readLength < HEADER_LENGTH) {
                 updateSingleCtxInfo(ctxHashCode, new ConcurrentQyMap<>(), header, null);
                 return;
@@ -77,13 +78,13 @@ public class BytesDecodeQyMsg extends ByteToMessageDecoder {
                 readLength = remainingHeaderLength;
             }
             header = ArrayUtil.addAll(header, readBytes(in, readLength));
+            log.warn(new String(header, StandardCharsets.UTF_8));
             if (header.length < HEADER_LENGTH) {
                 updateSingleCtxInfo(ctxHashCode, ctxData, header, null);
                 return;
             }
         }
 
-        log.warn(new String(header, StandardCharsets.UTF_8));
 
         boolean segmentation;
         try {
