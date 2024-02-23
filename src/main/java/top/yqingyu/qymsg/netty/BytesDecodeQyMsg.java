@@ -136,8 +136,10 @@ public class BytesDecodeQyMsg extends ByteToMessageDecoder {
         decoder.setSegmentInfo(parse, segmentationInfo);
         int bodySize = decoder.getMsgLength(header);
         int readableSize = in.readableBytes();
+//TODO        log.debug("PartMsgId: {} the part {} of {}", parse.getPartition_id(), parse.getNumerator(), parse.getDenominator());
         if (segBody == null) {
             if (readableSize >= bodySize) {
+                DECODE_TEMP_CACHE.remove(ctxHashCode);
                 parse.putMsg(readBytes(in, bodySize));
                 log.debug("PartMsgId: {} the part {} of {}", parse.getPartition_id(), parse.getNumerator(), parse.getDenominator());
                 QyMsg merger = connector.merger(parse);
