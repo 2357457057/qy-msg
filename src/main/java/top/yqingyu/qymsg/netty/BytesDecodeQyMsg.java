@@ -125,7 +125,7 @@ public class BytesDecodeQyMsg extends ByteToMessageDecoder {
                 return;
             }
         } else if (segmentationInfo.length != SEGMENTATION_INFO_LENGTH) {
-            int remainingHeaderLength = HEADER_LENGTH - segmentationInfo.length;
+            int remainingHeaderLength = SEGMENTATION_INFO_LENGTH - segmentationInfo.length;
             int readLength = in.readableBytes();
             if (readLength >= remainingHeaderLength) {
                 readLength = remainingHeaderLength;
