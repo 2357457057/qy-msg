@@ -115,7 +115,26 @@ public class BytesDecodeQyMsg extends ByteToMessageDecoder {
         }
         QyMsg parse = decoder.createMsg(header);
         if (segmentationInfo == null) {
-            segmentationInfo = readBytes(in, SEGMENTATION_INFO_LENGTH);
+            int readLength = in.readableBytes();
+            if (readLength >= SEGMENTATION_INFO_LENGTH) {
+                readLength = SEGMENTATION_INFO_LENGTH;
+            }
+            segmentationInfo = readBytes(in, readLength);
+            if (readLength < SEGMENTATION_INFO_LENGTH) {
+                updateSegCtxInfo(ctxHashCode, ctxData == null ? new ConcurrentQyMap<>() : ctxData, header, segmentationInfo, null);
+                return;
+            }
+        } else if (segmentationInfo.length != SEGMENTATION_INFO_LENGTH) {
+            int remainingHeaderLength = HEADER_LENGTH - segmentationInfo.length;
+            int readLength = in.readableBytes();
+            if (readLength >= remainingHeaderLength) {
+                readLength = remainingHeaderLength;
+            }
+            segmentationInfo = ArrayUtil.addAll(segmentationInfo, readBytes(in, readLength));
+            if (segmentationInfo.length < SEGMENTATION_INFO_LENGTH) {
+                updateSegCtxInfo(ctxHashCode, ctxData, header, segmentationInfo, null);
+                return;
+            }
         }
         decoder.setSegmentInfo(parse, segmentationInfo);
         int bodySize = decoder.getMsgLength(header);
