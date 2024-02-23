@@ -67,8 +67,8 @@ public class BytesDecodeQyMsg extends ByteToMessageDecoder {
             }
             header = readBytes(in, readLength);
             log.warn(new String(header, StandardCharsets.UTF_8));
+            updateSingleCtxInfo(ctxHashCode, new ConcurrentQyMap<>(), header, null);
             if (readLength < HEADER_LENGTH) {
-                updateSingleCtxInfo(ctxHashCode, new ConcurrentQyMap<>(), header, null);
                 return;
             }
         } else if (header.length != HEADER_LENGTH) {
@@ -79,8 +79,8 @@ public class BytesDecodeQyMsg extends ByteToMessageDecoder {
             }
             header = ArrayUtil.addAll(header, readBytes(in, readLength));
             log.warn(new String(header, StandardCharsets.UTF_8));
+            updateSingleCtxInfo(ctxHashCode, ctxData, header, null);
             if (header.length != HEADER_LENGTH) {
-                updateSingleCtxInfo(ctxHashCode, ctxData, header, null);
                 return;
             }
         }
@@ -120,8 +120,8 @@ public class BytesDecodeQyMsg extends ByteToMessageDecoder {
                 readLength = SEGMENTATION_INFO_LENGTH;
             }
             segmentationInfo = readBytes(in, readLength);
+            updateSegCtxInfo(ctxHashCode, ctxData == null ? new ConcurrentQyMap<>() : ctxData, header, segmentationInfo, null);
             if (readLength < SEGMENTATION_INFO_LENGTH) {
-                updateSegCtxInfo(ctxHashCode, ctxData == null ? new ConcurrentQyMap<>() : ctxData, header, segmentationInfo, null);
                 return;
             }
         } else if (segmentationInfo.length != SEGMENTATION_INFO_LENGTH) {
@@ -131,8 +131,8 @@ public class BytesDecodeQyMsg extends ByteToMessageDecoder {
                 readLength = remainingHeaderLength;
             }
             segmentationInfo = ArrayUtil.addAll(segmentationInfo, readBytes(in, readLength));
+            updateSegCtxInfo(ctxHashCode, ctxData, header, segmentationInfo, null);
             if (segmentationInfo.length != SEGMENTATION_INFO_LENGTH) {
-                updateSegCtxInfo(ctxHashCode, ctxData, header, segmentationInfo, null);
                 return;
             }
         }
