@@ -51,8 +51,28 @@ public class BytesDecodeQyMsg extends ByteToMessageDecoder {
             singleBody = ctxData.get("singleBody", byte[].class);
         }
 
+
         if (header == null) {
-            header = readBytes(in, HEADER_LENGTH);
+            int readLength = in.readableBytes();
+            if (readLength >= HEADER_LENGTH) {
+                readLength = HEADER_LENGTH;
+            }
+            header = readBytes(in, readLength);
+            if (readLength < HEADER_LENGTH) {
+                updateSingleCtxInfo(ctxHashCode, new ConcurrentQyMap<>(), header, null);
+                return;
+            }
+        } else if (header.length != HEADER_LENGTH) {
+            int remainingHeaderLength = HEADER_LENGTH - header.length;
+            int readLength = in.readableBytes();
+            if (readLength >= remainingHeaderLength) {
+                readLength = remainingHeaderLength;
+            }
+            header = ArrayUtil.addAll(header, readBytes(in, readLength));
+            if (header.length < HEADER_LENGTH) {
+                updateSingleCtxInfo(ctxHashCode, ctxData, header, null);
+                return;
+            }
         }
 
         boolean segmentation;
@@ -100,8 +120,7 @@ public class BytesDecodeQyMsg extends ByteToMessageDecoder {
                     ctx.fireChannelRead(merger);
                 }
             } else {
-                ConcurrentQyMap<String, Object> ctxInfo = new ConcurrentQyMap<>();
-                updateSegCtxInfo(ctxHashCode, ctxInfo, header, segmentationInfo, readBytes(in, readableSize));
+                updateSegCtxInfo(ctxHashCode, ctxData == null ? new ConcurrentQyMap<>() : ctxData, header, segmentationInfo, readBytes(in, readableSize));
             }
         } else {
             bodySize -= segBody.length;
