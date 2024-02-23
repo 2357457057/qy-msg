@@ -84,7 +84,7 @@ public class MsgEncoder {
      */
     private void HEART_BEAT_Encode(byte[] header, ArrayList<byte[]> list) {
         header[DATA_TYPE_IDX] = MsgTransfer.DATA_TYPE_2_CHAR(DataType.STRING);
-        list.add(header);
+        list.add(ArrayUtil.addAll(header, transfer.getLength(ArrayUtil.EMPTY_BYTE_ARRAY)));
     }
 
     /**
