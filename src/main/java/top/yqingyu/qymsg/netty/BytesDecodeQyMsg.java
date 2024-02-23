@@ -17,7 +17,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Objects;
 
-import static top.yqingyu.qymsg.Dict.*;
+import static top.yqingyu.qymsg.Dict.HEADER_LENGTH;
+import static top.yqingyu.qymsg.Dict.SEGMENTATION_INFO_LENGTH;
 
 /**
  * 配合netty的QyMsg解析器
@@ -49,7 +50,6 @@ public class BytesDecodeQyMsg extends ByteToMessageDecoder {
         ConcurrentQyMap<String, Object> ctxData = DECODE_TEMP_CACHE.computeIfAbsent(ctxHashCode, k -> new ConcurrentQyMap<>());
         byte[] header = ctxData.get("header", byte[].class);
         byte[] segmentationInfo = ctxData.get("segmentationInfo", byte[].class);
-        byte[] msgBody = ctxData.get("body", byte[].class);
         QyMsg msg = ctxData.get("obj", QyMsg.class);
 
         if (msg == null) {
@@ -81,10 +81,10 @@ public class BytesDecodeQyMsg extends ByteToMessageDecoder {
         if (!msg.isSegmentation()) {
             QyMsg qyMsg;
             switch (msg.getMsgType()) {
-                case AC -> qyMsg = AC_Disassembly(in, ctxData, msgBody);
+                case AC -> qyMsg = AC_Disassembly(in, ctxData);
                 case HEART_BEAT -> qyMsg = msg;
-                case ERR_MSG -> qyMsg = ERR_MSG_Disassembly(in, ctxData, msgBody);
-                default -> qyMsg = NORM_MSG_Disassembly(in, ctxData, msgBody);
+                case ERR_MSG -> qyMsg = ERR_MSG_Disassembly(in, ctxData);
+                default -> qyMsg = NORM_MSG_Disassembly(in, ctxData);
             }
             if (qyMsg != null) {
                 DECODE_TEMP_CACHE.remove(ctxHashCode);
@@ -119,6 +119,7 @@ public class BytesDecodeQyMsg extends ByteToMessageDecoder {
 
         int bodySize = msg.getBodySize();
         int readableSize = in.readableBytes();
+        byte[] msgBody = ctxData.get("body", byte[].class);
         if (msgBody == null) {
             if (readableSize >= bodySize) {
                 DECODE_TEMP_CACHE.remove(ctxHashCode);
@@ -151,8 +152,9 @@ public class BytesDecodeQyMsg extends ByteToMessageDecoder {
         return readBytes;
     }
 
-    private byte[] readBytes2(ByteBuf in, ConcurrentQyMap<String, Object> ctxData, byte[] body) {
+    private byte[] readBytes2(ByteBuf in, ConcurrentQyMap<String, Object> ctxData) {
         int bodySize = ctxData.get("obj", QyMsg.class).getBodySize();
+        byte[] body = ctxData.get("body", byte[].class);
         int readableSize = in.readableBytes();
         if (body == null) {
             if (readableSize >= bodySize) {
@@ -198,8 +200,8 @@ public class BytesDecodeQyMsg extends ByteToMessageDecoder {
      *
      * @param in 流
      */
-    private QyMsg AC_Disassembly(ByteBuf in, ConcurrentQyMap<String, Object> ctxData, byte[] body) throws IOException, ClassNotFoundException {
-        byte[] bytes = readBytes2(in, ctxData, body);
+    private QyMsg AC_Disassembly(ByteBuf in, ConcurrentQyMap<String, Object> ctxData) throws IOException, ClassNotFoundException {
+        byte[] bytes = readBytes2(in, ctxData);
         if (bytes == null) return null;
         QyMsg qyMsg = ctxData.get("obj", QyMsg.class);
         if (Objects.requireNonNull(qyMsg.getDataType()) == DataType.OBJECT) {
@@ -212,26 +214,26 @@ public class BytesDecodeQyMsg extends ByteToMessageDecoder {
     /**
      * 常规消息组装
      */
-    private QyMsg NORM_MSG_Disassembly(ByteBuf in, ConcurrentQyMap<String, Object> ctxData, byte[] body) throws IOException, ClassNotFoundException {
+    private QyMsg NORM_MSG_Disassembly(ByteBuf in, ConcurrentQyMap<String, Object> ctxData) throws IOException, ClassNotFoundException {
         QyMsg qyMsg = ctxData.get("obj", QyMsg.class);
         switch (qyMsg.getDataType()) {
             case STRING -> {
-                byte[] bytes = readBytes2(in, ctxData, body);
+                byte[] bytes = readBytes2(in, ctxData);
                 if (bytes == null) return null;
                 String s = new String(bytes, StandardCharsets.UTF_8);
                 qyMsg.putMsg(s);
                 return qyMsg;
             }
             case OBJECT -> {
-                byte[] bytes = readBytes2(in, ctxData, body);
+                byte[] bytes = readBytes2(in, ctxData);
                 if (bytes == null) return null;
                 return qyMsg.setDataMap(IoUtil.deserializationObj(bytes, DataMap.class));
             }
             case STREAM -> {
-                return streamDeal(in, ctxData, body);
+                return streamDeal(in, ctxData);
             }
             default -> { //JSON FILE
-                byte[] bytes = readBytes2(in, ctxData, body);
+                byte[] bytes = readBytes2(in, ctxData);
                 if (bytes == null) return null;
                 return qyMsg.setDataMap(JSON.parseObject(bytes, DataMap.class));
             }
@@ -241,18 +243,18 @@ public class BytesDecodeQyMsg extends ByteToMessageDecoder {
     /**
      * 异常消息组装
      */
-    private QyMsg ERR_MSG_Disassembly(ByteBuf in, ConcurrentQyMap<String, Object> ctxData, byte[] body) throws IOException, ClassNotFoundException {
+    private QyMsg ERR_MSG_Disassembly(ByteBuf in, ConcurrentQyMap<String, Object> ctxData) throws IOException, ClassNotFoundException {
         QyMsg qyMsg = ctxData.get("obj", QyMsg.class);
         if (DataType.JSON.equals(qyMsg.getDataType())) {
-            byte[] bytes = readBytes2(in, ctxData, body);
+            byte[] bytes = readBytes2(in, ctxData);
             if (bytes == null) return null;
             return qyMsg.setDataMap(JSON.parseObject(bytes, DataMap.class));
         } else if (DataType.OBJECT.equals(qyMsg.getDataType())) {
-            byte[] bytes = readBytes2(in, ctxData, body);
+            byte[] bytes = readBytes2(in, ctxData);
             if (bytes == null) return null;
             return qyMsg.setDataMap(IoUtil.deserializationObj(bytes, DataMap.class));
         } else {
-            qyMsg = streamDeal(in, ctxData, body);
+            qyMsg = streamDeal(in, ctxData);
             if (qyMsg == null) return null;
             qyMsg.putMsg(new String((byte[]) MsgHelper.gainObjMsg(qyMsg), StandardCharsets.UTF_8));
             return qyMsg;
@@ -264,9 +266,9 @@ public class BytesDecodeQyMsg extends ByteToMessageDecoder {
      *
      * @author YYJ
      */
-    private QyMsg streamDeal(ByteBuf in, ConcurrentQyMap<String, Object> ctxData, byte[] body) {
+    private QyMsg streamDeal(ByteBuf in, ConcurrentQyMap<String, Object> ctxData) {
         QyMsg qyMsg = ctxData.get("obj", QyMsg.class);
-        byte[] bytes = readBytes2(in, ctxData, body);
+        byte[] bytes = readBytes2(in, ctxData);
         if (bytes == null) return null;
         qyMsg.putMsg(bytes);
         return qyMsg;

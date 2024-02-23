@@ -48,7 +48,6 @@ public class MsgEncoder {
         }
         byte[] from = msgFrom.getBytes(StandardCharsets.UTF_8);
         System.arraycopy(from, 0, header, MSG_FROM_IDX_START, from.length);
-        log.warn(new String(header, StandardCharsets.UTF_8));
         switch (qyMsg.getMsgType()) {
             case AC -> AC_Encode(header, qyMsg, list);
             case HEART_BEAT -> HEART_BEAT_Encode(header, list);
