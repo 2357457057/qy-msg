@@ -1,5 +1,7 @@
 package top.yqingyu.qymsg.bean;
 
+import top.yqingyu.common.function.Progress;
+
 import java.io.Serial;
 import java.io.Serializable;
 
@@ -17,6 +19,7 @@ public class TransObj implements Serializable {
     private String newName;
     private boolean isUpload = false;
     private boolean hasNext = false;
+    private transient Progress progress;
 
     public TransObj() {
     }
@@ -108,6 +111,14 @@ public class TransObj implements Serializable {
 
     public void setNewName(String newName) {
         this.newName = newName;
+    }
+
+    public Progress getProgress() {
+        return progress;
+    }
+
+    public void setProgress(Progress progress) {
+        this.progress = progress;
     }
 
     public void setNextId(String nextId) {
