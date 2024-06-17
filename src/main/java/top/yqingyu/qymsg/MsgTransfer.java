@@ -39,7 +39,8 @@ public class MsgTransfer {
 //    private static final int MSG_LENGTH_MAX = 33_554_432;
 
 
-    public int MSG_LENGTH_RADIX;
+    //为了能容纳更多的数据，建议为32
+    public int MSG_LENGTH_RADIX = 32;
     //默认为 大部分网卡的一帧的长度
     public int BODY_LENGTH_MAX = 1400;
     public MsgConnector connector;

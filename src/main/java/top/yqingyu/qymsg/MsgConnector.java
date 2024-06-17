@@ -49,7 +49,6 @@ public class MsgConnector implements Runnable {
 
             MsgType msgType = qyMsg.getMsgType();
             DataType dataType = qyMsg.getDataType();
-            log.debug("消息总长度 {}",buf.get().length);
             QyMsg out = new QyMsg(msgType, dataType);
             out.setSegmentation(false);
             out.setFrom(qyMsg.getFrom());
@@ -69,7 +68,9 @@ public class MsgConnector implements Runnable {
             MSG_CONTAINER.remove(partition_id);
             log.debug("消息 {} piece {} 拼接完成", partition_id, denominator);
             return out;
-        } else if (list != null && MSG_CONTAINER.get(partition_id).size() + 1 != denominator) {
+        }
+
+        if (list != null && MSG_CONTAINER.get(partition_id).size() + 1 != denominator) {
             qyMsg.putMsgData("now", LocalDateTime.now());
             MSG_CONTAINER.get(partition_id).add(qyMsg);
         } else {

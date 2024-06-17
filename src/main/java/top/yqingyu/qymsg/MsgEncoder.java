@@ -143,8 +143,6 @@ public class MsgEncoder {
             list.add(ArrayUtil.addAll(header, transfer.getLength(body), body));
             return;
         }
-        log.debug("消息已拆分,原消息长度：{},数量：{},拆分后消息长度0：{},拆分后消息长度{}：{}", body.length, bodyList.size(),
-                bodyList.get(0).length, bodyList.size() - 1, bodyList.get(bodyList.size() - 1).length);
         header[SEGMENTATION_IDX] = MsgTransfer.BOOLEAN_2_SEGMENTATION(true);
         String part_trade_id = RandomStringUtil.random(PARTITION_ID_LENGTH, MsgTransfer.DICT);
         for (int i = 1; i <= bodyList.size(); i++) {
