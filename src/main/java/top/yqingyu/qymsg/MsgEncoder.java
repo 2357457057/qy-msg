@@ -141,18 +141,20 @@ public class MsgEncoder {
         ArrayList<byte[]> bodyList = ArrayUtil.checkArrayLength(body, transfer.BODY_LENGTH_MAX);
         if (bodyList.size() == 1) {
             list.add(ArrayUtil.addAll(header, transfer.getLength(body), body));
-        } else {
-            header[SEGMENTATION_IDX] = MsgTransfer.BOOLEAN_2_SEGMENTATION(true);
-            String part_trade_id = RandomStringUtil.random(PARTITION_ID_LENGTH, MsgTransfer.DICT);
-            for (int i = 1; i <= bodyList.size(); i++) {
-                byte[] cBody = bodyList.get(i - 1);
-                byte[] length = transfer.getLength(cBody);
-                byte[] partTradeIdBytes = part_trade_id.getBytes(StandardCharsets.UTF_8);
-                byte[] NUMERATOR = ArrayUtil.leftPad(RadixUtil.radix2Byte(i, transfer.MSG_LENGTH_RADIX), NUMERATOR_LENGTH, RadixUtil.BYTE_DICT[0]);
-                byte[] DENOMINATOR = ArrayUtil.leftPad(RadixUtil.radix2Byte(bodyList.size(), transfer.MSG_LENGTH_RADIX), DENOMINATOR_LENGTH, RadixUtil.BYTE_DICT[0]);
-                byte[] bytes = ArrayUtil.addAll(header, length, partTradeIdBytes, NUMERATOR, DENOMINATOR, cBody);
-                list.add(bytes);
-            }
+            return;
+        }
+        log.debug("消息已拆分,原消息长度：{},数量：{},拆分后消息长度0：{},拆分后消息长度{}：{}", body.length, bodyList.size(),
+                bodyList.get(0).length, bodyList.size() - 1, bodyList.get(bodyList.size() - 1).length);
+        header[SEGMENTATION_IDX] = MsgTransfer.BOOLEAN_2_SEGMENTATION(true);
+        String part_trade_id = RandomStringUtil.random(PARTITION_ID_LENGTH, MsgTransfer.DICT);
+        for (int i = 1; i <= bodyList.size(); i++) {
+            byte[] cBody = bodyList.get(i - 1);
+            byte[] length = transfer.getLength(cBody);
+            byte[] partTradeIdBytes = part_trade_id.getBytes(StandardCharsets.UTF_8);
+            byte[] NUMERATOR = ArrayUtil.leftPad(RadixUtil.radix2Byte(i, transfer.MSG_LENGTH_RADIX), NUMERATOR_LENGTH, RadixUtil.BYTE_DICT[0]);
+            byte[] DENOMINATOR = ArrayUtil.leftPad(RadixUtil.radix2Byte(bodyList.size(), transfer.MSG_LENGTH_RADIX), DENOMINATOR_LENGTH, RadixUtil.BYTE_DICT[0]);
+            byte[] bytes = ArrayUtil.addAll(header, length, partTradeIdBytes, NUMERATOR, DENOMINATOR, cBody);
+            list.add(bytes);
         }
     }
 

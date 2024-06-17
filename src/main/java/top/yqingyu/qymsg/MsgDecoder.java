@@ -92,28 +92,28 @@ public class MsgDecoder {
             parse.putMsg(header);
             log.debug("PartMsgId: {} the part {} of {}", parse.getPartition_id(), parse.getNumerator(), parse.getDenominator());
             return connector.merger(parse);
-        } else {
-            MsgType msgType;
-            try {
-                msgType = MsgTransfer.CHAR_2_MSG_TYPE(header[MSG_TYPE_IDX]);
-            } catch (Exception e) {
-                throw handleException(e, "非法消息标识", header);
+        }
+        MsgType msgType;
+        try {
+            msgType = MsgTransfer.CHAR_2_MSG_TYPE(header[MSG_TYPE_IDX]);
+        } catch (Exception e) {
+            throw handleException(e, "非法消息标识", header);
+        }
+        switch (msgType) {
+            case AC -> {
+                return AC_Decode(parse, socketChannel);
             }
-            switch (msgType) {
-                case AC -> {
-                    return AC_Decode(parse, socketChannel);
-                }
-                case HEART_BEAT -> {
-                    return parse;
-                }
-                case ERR_MSG -> {
-                    return ERR_MSG_Decode(parse, socketChannel);
-                }
-                default -> {
-                    return NORM_MSG_Decode(parse, socketChannel);
-                }
+            case HEART_BEAT -> {
+                return parse;
+            }
+            case ERR_MSG -> {
+                return ERR_MSG_Decode(parse, socketChannel);
+            }
+            default -> {
+                return NORM_MSG_Decode(parse, socketChannel);
             }
         }
+
     }
 
 

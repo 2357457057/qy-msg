@@ -49,7 +49,7 @@ public class MsgConnector implements Runnable {
 
             MsgType msgType = qyMsg.getMsgType();
             DataType dataType = qyMsg.getDataType();
-
+            log.debug("消息总长度 {}",buf.get().length);
             QyMsg out = new QyMsg(msgType, dataType);
             out.setSegmentation(false);
             out.setFrom(qyMsg.getFrom());

@@ -25,9 +25,9 @@ public class QyMsgEncodeBytes extends MessageToByteEncoder<QyMsg> {
 
     @Override
     protected void encode(ChannelHandlerContext ctx, QyMsg msg, ByteBuf out) throws Exception {
-        ArrayList<byte[]> MsgBytes = null;
+        ArrayList<byte[]> msgBytes;
         try {
-            MsgBytes = transfer.msgEncoder.encode(msg);
+            msgBytes = transfer.msgEncoder.encode(msg);
         } catch (Exception e) {
             if (exceptionHandler != null)
                 exceptionHandler.exceptionCaught(ctx, e);
@@ -35,9 +35,9 @@ public class QyMsgEncodeBytes extends MessageToByteEncoder<QyMsg> {
             clone.setMsgType(MsgType.ERR_MSG);
             clone.putMsg("msg encodeException");
             clone.putMsgData(Dict.ERR_MSG_EXCEPTION, e);
-            MsgBytes = transfer.msgEncoder.encode(clone);
+            msgBytes = transfer.msgEncoder.encode(clone);
         }
-        for (byte[] bytes : MsgBytes) {
+        for (byte[] bytes : msgBytes) {
             out.writeBytes(bytes);
         }
 
