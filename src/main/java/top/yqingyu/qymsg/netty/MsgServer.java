@@ -101,7 +101,7 @@ public class MsgServer {
         EventLoopGroup group = config.group();
         group.shutdownGracefully().sync();
         EventLoopGroup childGroup = config.childGroup();
-        childGroup.shutdownGracefully().sync();
+        childGroup.shutdownGracefully();
     }
 
     public void block() throws InterruptedException {
