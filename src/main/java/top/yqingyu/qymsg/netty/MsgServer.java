@@ -96,6 +96,10 @@ public class MsgServer {
         future = serverBootstrap.bind(port).sync();
     }
 
+    public void start(String host, int port) throws Exception {
+        future = serverBootstrap.bind(host, port).sync();
+    }
+
     public void shutdown() throws InterruptedException {
         ServerBootstrapConfig config = serverBootstrap.config();
         EventLoopGroup group = config.group();
