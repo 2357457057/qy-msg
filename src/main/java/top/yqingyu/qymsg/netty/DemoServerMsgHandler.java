@@ -11,6 +11,7 @@ import top.yqingyu.qymsg.QyMsg;
 public class DemoServerMsgHandler extends QyMsgServerHandler {
     @Override
     protected QyMsg handle(ChannelHandlerContext ctx, QyMsg msg) {
+        System.out.println("收到消息：" + msg);
         //无条件回写。
         return msg;
     }

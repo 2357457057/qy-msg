@@ -1,13 +1,24 @@
 package top.yqingyu.qymsg.netty;
 
+import io.netty.bootstrap.AbstractBootstrap;
 import io.netty.bootstrap.Bootstrap;
-import io.netty.channel.EventLoopGroup;
+import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioSocketChannel;
+import io.netty.util.Attribute;
+import io.netty.util.AttributeKey;
+import io.netty.util.concurrent.Promise;
 import top.yqingyu.common.utils.ThreadUtil;
+import top.yqingyu.common.utils.UUIDUtil;
 import top.yqingyu.qymsg.DataType;
+import top.yqingyu.qymsg.MsgTransfer;
 import top.yqingyu.qymsg.MsgType;
 import top.yqingyu.qymsg.QyMsg;
+
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class MsgClient {
     Bootstrap bootstrap;
@@ -43,5 +54,28 @@ public class MsgClient {
 
     public Connection getConnection() throws Exception {
         return pool.getConnection();
+    }
+
+    public void returnConnection(Connection connection) {
+        pool.returnConnection(connection);
+    }
+
+    public static void main(String[] args) throws Exception {
+        ConnectionConfig conf = new ConnectionConfig.Builder()
+
+                .host("127.0.0.1")
+                .poolMax(40)
+                .port(4729)
+                .build();
+
+        MsgClient msgClient = MsgClient.create(conf);
+
+        QyMsg qyMsg = new QyMsg(MsgType.NORM_MSG, DataType.STRING);
+        String s = UUIDUtil.randomUUID().toString2();
+        qyMsg.setFrom(s);
+        qyMsg.putMsgData("AC_STR", "okkkko");
+
+        System.out.println(msgClient.getConnection().get(qyMsg));
+
     }
 }

@@ -6,14 +6,16 @@ import top.yqingyu.qymsg.QyMsg;
 public class QyMsgClientHandler extends SimpleChannelInboundHandler<QyMsg> {
 
     private final ConnectionPool pool;
+    private final Channel channel;
 
-    public QyMsgClientHandler(ConnectionPool pool) {
+    public QyMsgClientHandler(ConnectionPool pool, Channel channel) {
         this.pool = pool;
+        this.channel = channel;
     }
 
     @Override
     public void channelActive(ChannelHandlerContext ctx) throws Exception {
-        pool.pushConnection(ctx);
+        channel.attr(pool.connectionAttr).set(new Connection(ctx));
     }
 
     @Override

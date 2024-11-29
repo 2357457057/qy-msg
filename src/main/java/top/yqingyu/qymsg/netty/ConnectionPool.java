@@ -1,14 +1,16 @@
 package top.yqingyu.qymsg.netty;
 
+import io.netty.channel.Channel;
+import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.DefaultChannelPromise;
+import io.netty.util.AttributeKey;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 
-import top.yqingyu.qymsg.DataType;
-import top.yqingyu.qymsg.MsgType;
 import top.yqingyu.qymsg.QyMsg;
-import top.yqingyu.qymsg.exception.ConnectTimeOutException;
+import top.yqingyu.qymsg.exception.QyMsgInternalException;
 
 import java.util.concurrent.*;
 import java.util.concurrent.locks.ReentrantLock;
@@ -17,43 +19,17 @@ public class ConnectionPool {
     public static final Logger logger = LoggerFactory.getLogger(ConnectionPool.class);
     MsgClient client;
     ConnectionConfig config;
-    private final ConcurrentLinkedQueue<Connection> CONNECT_QUEUE;
+    private final LinkedBlockingQueue<Connection> CONNECT_QUEUE;
     private final ConcurrentHashMap<Integer, Connection> CONNECT_MAP;
     private final ReentrantLock genConnectionLock = new ReentrantLock();
-    final CyclicBarrier connBarrier = new CyclicBarrier(2);
-    private volatile boolean init = false;
+    public final AttributeKey<Connection> connectionAttr = AttributeKey.newInstance("CONNECTION");
 
     ConnectionPool(MsgClient client) {
         this.config = client.config;
         this.client = client;
-        CONNECT_QUEUE = new ConcurrentLinkedQueue<>();
+        CONNECT_QUEUE = new LinkedBlockingQueue<>();
         CONNECT_MAP = new ConcurrentHashMap<>(config.poolMax);
-    }
-
-    private void init() throws Exception {
-        if (!init) {
-            try {
-                genConnectionLock.lock();
-                if (!init) {
-                    QyMsg qyMsg = new QyMsg(MsgType.NORM_MSG, DataType.JSON);
-                    qyMsg.putMsg("connection closed");
-                    for (int i = 0; i < config.poolMin; i++) {
-                        connect0();
-                    }
-                    keep.start(this);
-                    init = true;
-                }
-            } finally {
-                genConnectionLock.unlock();
-            }
-        }
-    }
-
-    void pushConnection(ChannelHandlerContext context) throws Exception {
-        Connection connection = new Connection(context);
-        CONNECT_MAP.put(connection.getHash(), connection);
-        CONNECT_QUEUE.add(connection);
-        connBarrier.await();
+        keep.start(this);
     }
 
     void putMsg(ChannelHandlerContext context, QyMsg msg) throws Exception {
@@ -62,55 +38,65 @@ public class ConnectionPool {
     }
 
     public Connection getConnection() throws Exception {
-        init();
         Connection take;
-        if (CONNECT_MAP.size() < config.poolMax) {
+        if (CONNECT_MAP.size() < config.poolMin) {
             take = getConnection0();
-        } else {
+        } else if (CONNECT_MAP.size() < config.poolMax && !CONNECT_QUEUE.isEmpty()) {
             take = CONNECT_QUEUE.poll();
+        } else if (CONNECT_MAP.size() < config.poolMax) {
+            return getConnection0();
+        } else {
+            return CONNECT_QUEUE.take();
         }
         if (take != null && take.isClosed()) {
             CONNECT_MAP.clear();
             CONNECT_QUEUE.clear();
             take = null;
         }
-        while (take == null) {
-            Thread.sleep(0);
-            take = getConnection0();
-            if (take != null && !CONNECT_MAP.containsValue(take)) {
-                take = null;
-            }
-            if (take != null && take.isClosed()) {
-                CONNECT_MAP.clear();
-                CONNECT_QUEUE.clear();
-                take = null;
-            }
+        if (take != null)
+            return take;
+        return getConnection0();
+    }
+
+    public void returnConnection(Connection connection) {
+        if (connection == null) return;
+        if (connection.isClosed()) {
+            CONNECT_MAP.remove(connection.getHash());
+        } else {
+            CONNECT_QUEUE.add(connection);
         }
-        CONNECT_QUEUE.add(take);
-        return take;
     }
 
     private Connection getConnection0() throws Exception {
         try {
             genConnectionLock.lock();
-            if (CONNECT_MAP.size() < config.poolMax) {
-                connect0();
+            if (CONNECT_MAP.size() == config.poolMax) {
+                return CONNECT_QUEUE.take();
             }
-            return CONNECT_QUEUE.poll();
+            ChannelFuture sync = client.bootstrap.connect(config.host, config.port).sync();
+            Connection connection = null;
+            for (int i = 0; i < 3; i++) {
+                TimeUnit.MICROSECONDS.sleep(50);
+                connection = sync.channel().attr(connectionAttr).get();
+                if (connection != null) {
+                    if (logger.isDebugEnabled())
+                        logger.debug("channel[{}] sync success times[{}]", sync.channel().hashCode(), i);
+                    break;
+                }
+                if (logger.isDebugEnabled()) {
+                    logger.debug("channel[{}] sync fail times[{}]", sync.channel().hashCode(), i);
+                }
+            }
+            if (connection == null) {
+                throw new QyMsgInternalException("channel sync fail");
+            }
+            CONNECT_MAP.put(connection.getHash(), connection);
+            CONNECT_QUEUE.add(connection);
+            return connection;
         } finally {
             genConnectionLock.unlock();
         }
 
-    }
-
-    private void connect0() throws Exception {
-        client.bootstrap.connect(config.host, config.port);
-        try {
-            connBarrier.await(5, TimeUnit.SECONDS);
-        } catch (TimeoutException timeoutException) {
-            connBarrier.reset();
-            throw new ConnectTimeOutException("connect time out");
-        }
     }
 
     static class keep implements Runnable {
