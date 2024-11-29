@@ -1,6 +1,7 @@
 package top.yqingyu.qymsg.netty;
 
 import io.netty.channel.*;
+import io.netty.util.AttributeKey;
 import top.yqingyu.qymsg.QyMsg;
 
 public class QyMsgClientHandler extends SimpleChannelInboundHandler<QyMsg> {
@@ -15,7 +16,7 @@ public class QyMsgClientHandler extends SimpleChannelInboundHandler<QyMsg> {
 
     @Override
     public void channelActive(ChannelHandlerContext ctx) throws Exception {
-        channel.attr(pool.connectionAttr).set(new Connection(ctx));
+        channel.attr(AttributeKey.newInstance("CONNECTION:" + channel.hashCode())).set(new Connection(ctx));
     }
 
     @Override

@@ -22,7 +22,6 @@ public class ConnectionPool {
     private final LinkedBlockingQueue<Connection> CONNECT_QUEUE;
     private final ConcurrentHashMap<Integer, Connection> CONNECT_MAP;
     private final ReentrantLock genConnectionLock = new ReentrantLock();
-    public final AttributeKey<Connection> connectionAttr = AttributeKey.newInstance("CONNECTION");
 
     ConnectionPool(MsgClient client) {
         this.config = client.config;
@@ -77,14 +76,15 @@ public class ConnectionPool {
             Connection connection = null;
             for (int i = 0; i < 3; i++) {
                 TimeUnit.MICROSECONDS.sleep(50);
-                connection = sync.channel().attr(connectionAttr).get();
+                Channel channel = sync.channel();
+                connection = (Connection) channel.attr(AttributeKey.newInstance("CONNECTION:" + channel.hashCode())).get();
                 if (connection != null) {
                     if (logger.isDebugEnabled())
-                        logger.debug("channel[{}] sync success times[{}]", sync.channel().hashCode(), i);
+                        logger.debug("channel[{}] sync success times[{}]", channel.hashCode(), i);
                     break;
                 }
                 if (logger.isDebugEnabled()) {
-                    logger.debug("channel[{}] sync fail times[{}]", sync.channel().hashCode(), i);
+                    logger.debug("channel[{}] sync fail times[{}]", channel.hashCode(), i);
                 }
             }
             if (connection == null) {
