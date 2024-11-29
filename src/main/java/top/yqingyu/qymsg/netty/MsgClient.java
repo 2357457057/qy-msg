@@ -59,23 +59,4 @@ public class MsgClient {
     public void returnConnection(Connection connection) {
         pool.returnConnection(connection);
     }
-
-    public static void main(String[] args) throws Exception {
-        ConnectionConfig conf = new ConnectionConfig.Builder()
-
-                .host("127.0.0.1")
-                .poolMax(40)
-                .port(4729)
-                .build();
-
-        MsgClient msgClient = MsgClient.create(conf);
-
-        QyMsg qyMsg = new QyMsg(MsgType.NORM_MSG, DataType.STRING);
-        String s = UUIDUtil.randomUUID().toString2();
-        qyMsg.setFrom(s);
-        qyMsg.putMsgData("AC_STR", "okkkko");
-
-        System.out.println(msgClient.getConnection().get(qyMsg));
-
-    }
 }
