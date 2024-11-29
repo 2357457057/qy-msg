@@ -77,7 +77,7 @@ public class ConnectionPool {
             for (int i = 0; i < 3; i++) {
                 TimeUnit.MICROSECONDS.sleep(50);
                 Channel channel = sync.channel();
-                connection = (Connection) channel.attr(AttributeKey.newInstance("CONNECTION:" + channel.hashCode())).get();
+                connection = (Connection) channel.attr(AttributeKey.valueOf("CONNECTION:" + channel.hashCode())).get();
                 if (connection != null) {
                     if (logger.isDebugEnabled())
                         logger.debug("channel[{}] sync success times[{}]", channel.hashCode(), i);
