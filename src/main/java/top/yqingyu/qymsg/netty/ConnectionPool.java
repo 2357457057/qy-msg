@@ -74,7 +74,7 @@ public class ConnectionPool {
             }
             ChannelFuture sync = client.bootstrap.connect(config.host, config.port).sync();
             Connection connection = null;
-            for (int i = 0; i < 3; i++) {
+            for (int i = 0; i < 100; i++) {
                 TimeUnit.MICROSECONDS.sleep(500);
                 Channel channel = sync.channel();
                 connection = (Connection) channel.attr(AttributeKey.valueOf("CONNECTION:" + channel.hashCode())).get();
