@@ -78,7 +78,7 @@ public class ConnectionPool {
             Channel channel = channelFuture.channel();
 
             channel.attr(SYNC).set(sync);
-            sync.await();
+            sync.await(3000, TimeUnit.MILLISECONDS);
             Connection connection = channel.attr(CONNECTION).get();
             CONNECT_MAP.put(connection.getHash(), connection);
             CONNECT_QUEUE.add(connection);
