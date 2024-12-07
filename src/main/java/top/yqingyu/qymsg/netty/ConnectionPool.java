@@ -3,14 +3,12 @@ package top.yqingyu.qymsg.netty;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.DefaultChannelPromise;
 import io.netty.util.AttributeKey;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 
 import top.yqingyu.qymsg.QyMsg;
-import top.yqingyu.qymsg.exception.QyMsgInternalException;
 
 import java.util.concurrent.*;
 import java.util.concurrent.locks.ReentrantLock;
@@ -22,6 +20,9 @@ public class ConnectionPool {
     private final LinkedBlockingQueue<Connection> CONNECT_QUEUE;
     private final ConcurrentHashMap<Integer, Connection> CONNECT_MAP;
     private final ReentrantLock genConnectionLock = new ReentrantLock();
+
+    public final static AttributeKey<CountDownLatch> SYNC = AttributeKey.newInstance("SYNC");
+    public final static AttributeKey<Connection> CONNECTION = AttributeKey.newInstance("CONNECTION");
 
     ConnectionPool(MsgClient client) {
         this.config = client.config;
@@ -76,15 +77,9 @@ public class ConnectionPool {
             ChannelFuture channelFuture = client.bootstrap.connect(config.host, config.port).sync();
             Channel channel = channelFuture.channel();
 
-            AttributeKey<Object> objectAttributeKey;
-            if (AttributeKey.exists("SYNC:" + channel.hashCode())) {
-                objectAttributeKey = AttributeKey.valueOf("SYNC:" + channel.hashCode());
-            } else {
-                objectAttributeKey = AttributeKey.newInstance("SYNC:" + channel.hashCode());
-            }
-            channel.attr(objectAttributeKey).set(sync);
+            channel.attr(SYNC).set(sync);
             sync.await();
-            Connection connection = (Connection) channel.attr(AttributeKey.valueOf("CONNECTION:" + channel.hashCode())).get();
+            Connection connection = channel.attr(CONNECTION).get();
             CONNECT_MAP.put(connection.getHash(), connection);
             CONNECT_QUEUE.add(connection);
             return connection;

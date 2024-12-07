@@ -18,14 +18,9 @@ public class QyMsgClientHandler extends SimpleChannelInboundHandler<QyMsg> {
 
     @Override
     public void channelActive(ChannelHandlerContext ctx) throws Exception {
-        CountDownLatch countDownLatch = (CountDownLatch) channel.attr(AttributeKey.valueOf("SYNC:" + channel.hashCode())).get();
+        CountDownLatch countDownLatch = channel.attr(ConnectionPool.SYNC).get();
         countDownLatch.countDown();
-        AttributeKey<Object> objectAttributeKey;
-        if (AttributeKey.exists("CONNECTION:" + channel.hashCode())) {
-            objectAttributeKey = AttributeKey.valueOf("CONNECTION:" + channel.hashCode());
-        } else
-            objectAttributeKey = AttributeKey.newInstance("CONNECTION:" + channel.hashCode());
-        channel.attr(objectAttributeKey).set(new Connection(ctx));
+        channel.attr(ConnectionPool.CONNECTION).set(new Connection(ctx));
     }
 
     @Override
