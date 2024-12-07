@@ -75,7 +75,14 @@ public class ConnectionPool {
             CountDownLatch sync = new CountDownLatch(1);
             ChannelFuture channelFuture = client.bootstrap.connect(config.host, config.port).sync();
             Channel channel = channelFuture.channel();
-            channel.attr(AttributeKey.newInstance("SYNC:" + channel.hashCode())).set(sync);
+
+            AttributeKey<Object> objectAttributeKey;
+            if (AttributeKey.exists("SYNC:" + channel.hashCode())) {
+                objectAttributeKey = AttributeKey.valueOf("SYNC:" + channel.hashCode());
+            } else {
+                objectAttributeKey = AttributeKey.newInstance("SYNC:" + channel.hashCode());
+            }
+            channel.attr(objectAttributeKey).set(sync);
             sync.await();
             Connection connection = (Connection) channel.attr(AttributeKey.valueOf("CONNECTION:" + channel.hashCode())).get();
             CONNECT_MAP.put(connection.getHash(), connection);
