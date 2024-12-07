@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory;
 
 
 import top.yqingyu.qymsg.QyMsg;
+import top.yqingyu.qymsg.exception.ConnectTimeOutException;
 
 import java.util.concurrent.*;
 import java.util.concurrent.locks.ReentrantLock;
@@ -20,9 +21,7 @@ public class ConnectionPool {
     private final LinkedBlockingQueue<Connection> CONNECT_QUEUE;
     private final ConcurrentHashMap<Integer, Connection> CONNECT_MAP;
     private final ReentrantLock genConnectionLock = new ReentrantLock();
-
-    public final static AttributeKey<CountDownLatch> SYNC = AttributeKey.newInstance("SYNC");
-    public final static AttributeKey<Connection> CONNECTION = AttributeKey.newInstance("CONNECTION");
+    final CyclicBarrier connBarrier = new CyclicBarrier(2);
 
     ConnectionPool(MsgClient client) {
         this.config = client.config;
@@ -67,22 +66,26 @@ public class ConnectionPool {
         }
     }
 
+    void pushConnection(Connection connection) throws Exception {
+        CONNECT_MAP.put(connection.getHash(), connection);
+        CONNECT_QUEUE.add(connection);
+        connBarrier.await();
+    }
+
     private Connection getConnection0() throws Exception {
         try {
             genConnectionLock.lock();
             if (CONNECT_MAP.size() == config.poolMax) {
                 return CONNECT_QUEUE.take();
             }
-            CountDownLatch sync = new CountDownLatch(1);
-            ChannelFuture channelFuture = client.bootstrap.connect(config.host, config.port).sync();
-            Channel channel = channelFuture.channel();
-
-            channel.attr(SYNC).set(sync);
-            sync.await(3000, TimeUnit.MILLISECONDS);
-            Connection connection = channel.attr(CONNECTION).get();
-            CONNECT_MAP.put(connection.getHash(), connection);
-            CONNECT_QUEUE.add(connection);
-            return connection;
+            client.bootstrap.connect(config.host, config.port);
+            try {
+                connBarrier.await(5, TimeUnit.SECONDS);
+            } catch (TimeoutException timeoutException) {
+                connBarrier.reset();
+                throw new ConnectTimeOutException("connect time out");
+            }
+            return CONNECT_QUEUE.take();
         } finally {
             genConnectionLock.unlock();
         }

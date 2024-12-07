@@ -19,6 +19,6 @@ public class QyMsgClientInitializer extends ChannelInitializer<SocketChannel> {
         ChannelPipeline pipeline = ch.pipeline();
         pipeline.addLast(new QyMsgEncodeBytes(transfer, new QyMsgExceptionHandler()));
         pipeline.addLast(new BytesDecodeQyMsg(transfer));
-        pipeline.addLast(new QyMsgClientHandler(pool, ch));
+        pipeline.addLast(new QyMsgClientHandler(pool));
     }
 }

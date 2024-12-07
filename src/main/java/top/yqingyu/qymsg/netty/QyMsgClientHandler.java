@@ -9,18 +9,14 @@ import java.util.concurrent.CountDownLatch;
 public class QyMsgClientHandler extends SimpleChannelInboundHandler<QyMsg> {
 
     private final ConnectionPool pool;
-    private final Channel channel;
 
-    public QyMsgClientHandler(ConnectionPool pool, Channel channel) {
+    public QyMsgClientHandler(ConnectionPool pool) {
         this.pool = pool;
-        this.channel = channel;
     }
 
     @Override
     public void channelActive(ChannelHandlerContext ctx) throws Exception {
-        CountDownLatch countDownLatch = channel.attr(ConnectionPool.SYNC).get();
-        countDownLatch.countDown();
-        channel.attr(ConnectionPool.CONNECTION).set(new Connection(ctx));
+        pool.pushConnection(new Connection(ctx));
     }
 
     @Override
