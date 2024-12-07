@@ -72,24 +72,12 @@ public class ConnectionPool {
             if (CONNECT_MAP.size() == config.poolMax) {
                 return CONNECT_QUEUE.take();
             }
-            ChannelFuture sync = client.bootstrap.connect(config.host, config.port).sync();
-            Connection connection = null;
-            for (int i = 0; i < 100000; i++) {
-                TimeUnit.MICROSECONDS.sleep(100);
-                Channel channel = sync.channel();
-                connection = (Connection) channel.attr(AttributeKey.valueOf("CONNECTION:" + channel.hashCode())).get();
-                if (connection != null) {
-                    if (logger.isDebugEnabled())
-                        logger.debug("channel[{}] sync success times[{}]", channel.hashCode(), i);
-                    break;
-                }
-                if (logger.isDebugEnabled()) {
-                    logger.debug("channel[{}] sync fail times[{}]", channel.hashCode(), i);
-                }
-            }
-            if (connection == null) {
-                throw new QyMsgInternalException("channel sync fail");
-            }
+            CountDownLatch sync = new CountDownLatch(1);
+            ChannelFuture channelFuture = client.bootstrap.connect(config.host, config.port).sync();
+            Channel channel = channelFuture.channel();
+            channel.attr(AttributeKey.newInstance("SYNC:" + channel.hashCode())).set(sync);
+            sync.await();
+            Connection connection = (Connection) channel.attr(AttributeKey.valueOf("CONNECTION:" + channel.hashCode())).get();
             CONNECT_MAP.put(connection.getHash(), connection);
             CONNECT_QUEUE.add(connection);
             return connection;

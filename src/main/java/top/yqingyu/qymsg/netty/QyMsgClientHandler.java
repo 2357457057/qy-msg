@@ -4,6 +4,8 @@ import io.netty.channel.*;
 import io.netty.util.AttributeKey;
 import top.yqingyu.qymsg.QyMsg;
 
+import java.util.concurrent.CountDownLatch;
+
 public class QyMsgClientHandler extends SimpleChannelInboundHandler<QyMsg> {
 
     private final ConnectionPool pool;
@@ -16,6 +18,8 @@ public class QyMsgClientHandler extends SimpleChannelInboundHandler<QyMsg> {
 
     @Override
     public void channelActive(ChannelHandlerContext ctx) throws Exception {
+        CountDownLatch countDownLatch = (CountDownLatch) channel.attr(AttributeKey.valueOf("SYNC:" + channel.hashCode())).get();
+        countDownLatch.countDown();
         channel.attr(AttributeKey.newInstance("CONNECTION:" + channel.hashCode())).set(new Connection(ctx));
     }
 
