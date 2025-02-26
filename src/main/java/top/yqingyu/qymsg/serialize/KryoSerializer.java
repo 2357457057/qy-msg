@@ -120,19 +120,21 @@ public class KryoSerializer {
             return (T) kryo.readClassAndObject(input);
         } finally {
             kryoPool.free(kryo);
+            inputPool.free(input);
         }
     }
 
     public <T> byte[] encode(T in) {
         Kryo kryo = kryoPool.obtain();
+        Output output = outputPool.obtain();
         try {
-            Output output = outputPool.obtain();
             ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
             output.setOutputStream(outputStream);
             kryo.writeClassAndObject(output, in);
             return outputStream.toByteArray();
         } finally {
             kryoPool.free(kryo);
+            outputPool.free(output);
         }
     }
 }
