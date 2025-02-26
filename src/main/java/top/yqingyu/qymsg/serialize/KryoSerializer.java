@@ -131,6 +131,7 @@ public class KryoSerializer {
             ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
             output.setOutputStream(outputStream);
             kryo.writeClassAndObject(output, in);
+            output.flush();
             return outputStream.toByteArray();
         } finally {
             kryoPool.free(kryo);
