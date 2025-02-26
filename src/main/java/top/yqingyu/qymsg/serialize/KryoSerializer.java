@@ -20,6 +20,7 @@ import static com.esotericsoftware.kryo.util.Util.className;
 
 public class KryoSerializer {
     public static final KryoSerializer INSTANCE = new KryoSerializer();
+
     private static final class SimpleInstantiatorStrategy implements org.objenesis.strategy.InstantiatorStrategy {
 
         private final StdInstantiatorStrategy ss = new StdInstantiatorStrategy();
@@ -111,18 +112,18 @@ public class KryoSerializer {
     }
 
     @SuppressWarnings("unchecked")
-    public <T> T decode(byte[] in){
+    public <T> T decode(byte[] in) {
         Kryo kryo = kryoPool.obtain();
+        Input input = inputPool.obtain();
         try {
-            Input input = inputPool.obtain();
             input.setBuffer(in);
             return (T) kryo.readClassAndObject(input);
-        }finally {
+        } finally {
             kryoPool.free(kryo);
         }
     }
 
-    public <T> byte[] encode(T in){
+    public <T> byte[] encode(T in) {
         Kryo kryo = kryoPool.obtain();
         try {
             Output output = outputPool.obtain();
@@ -130,7 +131,7 @@ public class KryoSerializer {
             output.setOutputStream(outputStream);
             kryo.writeClassAndObject(output, in);
             return outputStream.toByteArray();
-        }finally {
+        } finally {
             kryoPool.free(kryo);
         }
     }
