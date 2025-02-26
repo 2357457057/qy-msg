@@ -3,17 +3,19 @@ package top.yqingyu.qymsg.netty;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.MessageToByteEncoder;
+import io.netty.handler.codec.MessageToMessageEncoder;
 import top.yqingyu.qymsg.Dict;
 import top.yqingyu.qymsg.MsgTransfer;
 import top.yqingyu.qymsg.MsgType;
 import top.yqingyu.qymsg.QyMsg;
 
 import java.util.ArrayList;
+import java.util.List;
 
 /**
  * QyMsg 转Byte发送出去。
  */
-public class QyMsgEncodeBytes extends MessageToByteEncoder<QyMsg> {
+public class QyMsgEncodeBytes extends MessageToMessageEncoder<QyMsg> {
     private final MsgTransfer transfer;
 
     private final QyMsgExceptionHandler exceptionHandler;
@@ -24,7 +26,7 @@ public class QyMsgEncodeBytes extends MessageToByteEncoder<QyMsg> {
     }
 
     @Override
-    protected void encode(ChannelHandlerContext ctx, QyMsg msg, ByteBuf out) throws Exception {
+    protected void encode(ChannelHandlerContext ctx, QyMsg msg, List<Object> out) throws Exception {
         ArrayList<byte[]> msgBytes;
         try {
             msgBytes = transfer.msgEncoder.encode(msg);
@@ -38,7 +40,9 @@ public class QyMsgEncodeBytes extends MessageToByteEncoder<QyMsg> {
             msgBytes = transfer.msgEncoder.encode(clone);
         }
         for (byte[] bytes : msgBytes) {
-            out.writeBytes(bytes);
+            ByteBuf buffer = ctx.alloc().buffer(bytes.length);
+            buffer.writeBytes(bytes);
+            out.add(buffer);
         }
 
     }

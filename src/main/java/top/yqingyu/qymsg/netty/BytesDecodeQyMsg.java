@@ -11,6 +11,7 @@ import top.yqingyu.common.qydata.DataMap;
 import top.yqingyu.common.utils.ArrayUtil;
 import top.yqingyu.common.utils.IoUtil;
 import top.yqingyu.qymsg.*;
+import top.yqingyu.qymsg.serialize.KryoSerializer;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -81,10 +82,10 @@ public class BytesDecodeQyMsg extends ByteToMessageDecoder {
         if (!msg.isSegmentation()) {
             QyMsg qyMsg;
             switch (msg.getMsgType()) {
+                case NORM_MSG -> qyMsg = NORM_MSG_Disassembly(in, ctxData);
                 case AC -> qyMsg = AC_Disassembly(in, ctxData);
                 case HEART_BEAT -> qyMsg = msg;
-                case ERR_MSG -> qyMsg = ERR_MSG_Disassembly(in, ctxData);
-                default -> qyMsg = NORM_MSG_Disassembly(in, ctxData);
+                default -> qyMsg = ERR_MSG_Disassembly(in, ctxData);
             }
             if (qyMsg != null) {
                 DECODE_TEMP_CACHE.remove(ctxHashCode);
@@ -216,26 +217,34 @@ public class BytesDecodeQyMsg extends ByteToMessageDecoder {
      */
     private QyMsg NORM_MSG_Disassembly(ByteBuf in, ConcurrentQyMap<String, Object> ctxData) throws IOException, ClassNotFoundException {
         QyMsg qyMsg = ctxData.get("obj", QyMsg.class);
-        switch (qyMsg.getDataType()) {
+        DataType dataType = qyMsg.getDataType();
+        return getMsgFromByteBuf(in, ctxData, qyMsg, dataType);
+    }
+
+    private QyMsg getMsgFromByteBuf(ByteBuf in, ConcurrentQyMap<String, Object> ctxData, QyMsg qyMsg, DataType dataType) throws IOException, ClassNotFoundException {
+        byte[] bytes = readBytes2(in, ctxData);
+        if (bytes == null) return null;
+        switch (dataType) {
+            case KRYO5 -> {
+                return qyMsg.setDataMap(KryoSerializer.INSTANCE.decode(bytes));
+            }
+            case JSON -> {
+                return qyMsg.setDataMap(JSON.parseObject(bytes, DataMap.class));
+            }
+            case OBJECT -> {
+                return qyMsg.setDataMap(IoUtil.deserializationObj(bytes, DataMap.class));
+            }
+            case STREAM -> {
+                qyMsg.putMsg(bytes);
+                return qyMsg;
+            }
             case STRING -> {
-                byte[] bytes = readBytes2(in, ctxData);
-                if (bytes == null) return null;
                 String s = new String(bytes, StandardCharsets.UTF_8);
                 qyMsg.putMsg(s);
                 return qyMsg;
             }
-            case OBJECT -> {
-                byte[] bytes = readBytes2(in, ctxData);
-                if (bytes == null) return null;
-                return qyMsg.setDataMap(IoUtil.deserializationObj(bytes, DataMap.class));
-            }
-            case STREAM -> {
-                return streamDeal(in, ctxData);
-            }
-            default -> { //JSON FILE
-                byte[] bytes = readBytes2(in, ctxData);
-                if (bytes == null) return null;
-                return qyMsg.setDataMap(JSON.parseObject(bytes, DataMap.class));
+            default -> {
+                return qyMsg.setDataMap(KryoSerializer.INSTANCE.decode(bytes));
             }
         }
     }
@@ -245,33 +254,8 @@ public class BytesDecodeQyMsg extends ByteToMessageDecoder {
      */
     private QyMsg ERR_MSG_Disassembly(ByteBuf in, ConcurrentQyMap<String, Object> ctxData) throws IOException, ClassNotFoundException {
         QyMsg qyMsg = ctxData.get("obj", QyMsg.class);
-        if (DataType.JSON.equals(qyMsg.getDataType())) {
-            byte[] bytes = readBytes2(in, ctxData);
-            if (bytes == null) return null;
-            return qyMsg.setDataMap(JSON.parseObject(bytes, DataMap.class));
-        } else if (DataType.OBJECT.equals(qyMsg.getDataType())) {
-            byte[] bytes = readBytes2(in, ctxData);
-            if (bytes == null) return null;
-            return qyMsg.setDataMap(IoUtil.deserializationObj(bytes, DataMap.class));
-        } else {
-            qyMsg = streamDeal(in, ctxData);
-            if (qyMsg == null) return null;
-            qyMsg.putMsg(new String((byte[]) MsgHelper.gainObjMsg(qyMsg), StandardCharsets.UTF_8));
-            return qyMsg;
-        }
-    }
-
-    /**
-     * 流类型数据处理
-     *
-     * @author YYJ
-     */
-    private QyMsg streamDeal(ByteBuf in, ConcurrentQyMap<String, Object> ctxData) {
-        QyMsg qyMsg = ctxData.get("obj", QyMsg.class);
-        byte[] bytes = readBytes2(in, ctxData);
-        if (bytes == null) return null;
-        qyMsg.putMsg(bytes);
-        return qyMsg;
+        DataType dataType = qyMsg.getDataType();
+        return getMsgFromByteBuf(in, ctxData, qyMsg, dataType);
     }
 
 }

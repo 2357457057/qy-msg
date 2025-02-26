@@ -8,6 +8,7 @@ import top.yqingyu.common.utils.ArrayUtil;
 import top.yqingyu.common.utils.IoUtil;
 import top.yqingyu.common.utils.RadixUtil;
 import top.yqingyu.qymsg.exception.IllegalQyMsgException;
+import top.yqingyu.qymsg.serialize.KryoSerializer;
 
 import java.io.IOException;
 import java.net.Socket;
@@ -57,17 +58,17 @@ public class MsgDecoder {
             return connector.merger(parse);
         } else {
             switch (parse.getMsgType()) {
+                case NORM_MSG -> {
+                    return NORM_MSG_Decode(parse, socket, runFlag);
+                }
                 case AC -> {
                     return AC_Decode(parse, socket, runFlag);
                 }
                 case HEART_BEAT -> {
                     return parse;
                 }
-                case ERR_MSG -> {
-                    return ERR_MSG_Decode(parse, socket, runFlag);
-                }
                 default -> {
-                    return NORM_MSG_Decode(parse, socket, runFlag);
+                    return ERR_MSG_Decode(parse, socket, runFlag);
                 }
             }
         }
@@ -123,35 +124,39 @@ public class MsgDecoder {
      * @param socket socket
      */
     private QyMsg AC_Decode(QyMsg qyMsg, Socket socket, AtomicBoolean runFlag) throws IOException, ClassNotFoundException {
-
-        if (DataType.OBJECT.equals(qyMsg.getDataType())) {
-            return qyMsg.setDataMap(IoUtil.deserializationObj(IoUtil.readBytes3(socket, qyMsg.getBodySize(), runFlag), DataMap.class));
+        byte[] bytes = IoUtil.readBytes3(socket, qyMsg.getBodySize(), runFlag);
+        if (DataType.KRYO5.equals(qyMsg.getDataType())) {
+            return qyMsg.setDataMap(KryoSerializer.INSTANCE.decode(bytes));
         }
-        return qyMsg.setDataMap(JSON.parseObject(IoUtil.readBytes3(socket, qyMsg.getBodySize(), runFlag), DataMap.class));
+        if (DataType.OBJECT.equals(qyMsg.getDataType())) {
+            return qyMsg.setDataMap(IoUtil.deserializationObj(bytes, DataMap.class));
+        }
+        return qyMsg.setDataMap(JSON.parseObject(bytes, DataMap.class));
     }
 
     /**
      * 常规消息组装
      */
     private QyMsg NORM_MSG_Decode(QyMsg qyMsg, Socket socket, AtomicBoolean runFlag) throws IOException, ClassNotFoundException {
-        switch (qyMsg.getDataType()) {
+        DataType dataType = qyMsg.getDataType();
+        byte[] bytes = IoUtil.readBytes3(socket, qyMsg.getBodySize(), runFlag);
+        switch (dataType) {
+            case KRYO5 -> {
+                return qyMsg.setDataMap(KryoSerializer.INSTANCE.decode(bytes));
+            }
             case STRING -> {
-                byte[] bytes = IoUtil.readBytes3(socket, qyMsg.getBodySize(), runFlag);
-                String s = new String(bytes, StandardCharsets.UTF_8);
-                String from = s.substring(0, CLIENT_ID_LENGTH);
-                String msg = s.substring(CLIENT_ID_LENGTH);
-                qyMsg.setFrom(from);
-                qyMsg.putMsg(msg.getBytes(StandardCharsets.UTF_8));
+                qyMsg.putMsg(new String(bytes, StandardCharsets.UTF_8));
                 return qyMsg;
             }
             case OBJECT -> {
-                return qyMsg.setDataMap(IoUtil.deserializationObj(IoUtil.readBytes3(socket, qyMsg.getBodySize(), runFlag), DataMap.class));
+                return qyMsg.setDataMap(IoUtil.deserializationObj(bytes, DataMap.class));
             }
             case STREAM -> {
-                return streamDeal(qyMsg, socket, runFlag);
+                qyMsg.putMsg(bytes);
+                return qyMsg;
             }
             default -> { //JSON\FILE
-                return qyMsg.setDataMap(JSON.parseObject(IoUtil.readBytes3(socket, qyMsg.getBodySize(), runFlag), DataMap.class));
+                return qyMsg.setDataMap(JSON.parseObject(bytes, DataMap.class));
             }
         }
     }
@@ -160,34 +165,21 @@ public class MsgDecoder {
      * 异常消息组装
      */
     private QyMsg ERR_MSG_Decode(QyMsg qyMsg, Socket socket, AtomicBoolean runFlag) throws IOException, ClassNotFoundException {
-
-        if (DataType.JSON.equals(qyMsg.getDataType())) {
-            return qyMsg.setDataMap(JSON.parseObject(IoUtil.readBytes3(socket, qyMsg.getBodySize(), runFlag), DataMap.class));
-        } else if (DataType.OBJECT.equals(qyMsg.getDataType())) {
-            return qyMsg.setDataMap(IoUtil.deserializationObj(IoUtil.readBytes3(socket, qyMsg.getBodySize(), runFlag), DataMap.class));
-        } else {
-            return streamDeal(qyMsg, socket, runFlag);
-        }
-    }
-
-    /**
-     * 流类型数据处理
-     *
-     * @author YYJ
-     */
-    private QyMsg streamDeal(QyMsg qyMsg, Socket socket, AtomicBoolean runFlag) throws IOException {
-        qyMsg.putMsg(IoUtil.readBytes3(socket, qyMsg.getBodySize(), runFlag));
-        return qyMsg;
+        return NORM_MSG_Decode(qyMsg, socket, runFlag);
     }
 
     /**
      * 认证消息解码
      */
     private QyMsg AC_Decode(QyMsg qyMsg, SocketChannel socketChannel) throws IOException, ClassNotFoundException {
-        if (Objects.requireNonNull(qyMsg.getDataType()).equals(DataType.OBJECT)) {
-            return qyMsg.setDataMap(IoUtil.deserializationObj(IoUtil.readBytes(socketChannel, qyMsg.getBodySize()), DataMap.class));
+        byte[] bytes = IoUtil.readBytes(socketChannel, qyMsg.getBodySize());
+        if (DataType.KRYO5.equals(qyMsg.getDataType())) {
+            return qyMsg.setDataMap(KryoSerializer.INSTANCE.decode(bytes));
         }
-        return qyMsg.setDataMap(JSON.parseObject(IoUtil.readBytes(socketChannel, qyMsg.getBodySize()), DataMap.class));
+        if (DataType.OBJECT.equals(qyMsg.getDataType())) {
+            return qyMsg.setDataMap(IoUtil.deserializationObj(bytes, DataMap.class));
+        }
+        return qyMsg.setDataMap(JSON.parseObject(bytes, DataMap.class));
     }
 
 
@@ -195,20 +187,24 @@ public class MsgDecoder {
      * 常规消息组装
      */
     private QyMsg NORM_MSG_Decode(QyMsg qyMsg, SocketChannel socketChannel) throws IOException, ClassNotFoundException {
+        byte[] bytes = IoUtil.readBytes(socketChannel, qyMsg.getBodySize());
         switch (qyMsg.getDataType()) {
+            case KRYO5 -> {
+                return qyMsg.setDataMap(KryoSerializer.INSTANCE.decode(bytes));
+            }
             case STRING -> {
-                byte[] bytes = IoUtil.readBytes(socketChannel, qyMsg.getBodySize());
                 qyMsg.putMsg(new String(bytes, StandardCharsets.UTF_8));
                 return qyMsg;
             }
             case OBJECT -> {
-                return qyMsg.setDataMap(IoUtil.deserializationObj(IoUtil.readBytes(socketChannel, qyMsg.getBodySize()), DataMap.class));
+                return qyMsg.setDataMap(IoUtil.deserializationObj(bytes, DataMap.class));
             }
             case STREAM -> {
-                return streamDeal(qyMsg, socketChannel);
+                qyMsg.putMsg(bytes);
+                return qyMsg;
             }
             default -> { //JSON FILE
-                return qyMsg.setDataMap(JSON.parseObject(IoUtil.readBytes(socketChannel, qyMsg.getBodySize()), DataMap.class));
+                return qyMsg.setDataMap(JSON.parseObject(bytes, DataMap.class));
             }
         }
     }
@@ -217,25 +213,9 @@ public class MsgDecoder {
      * 异常消息组装
      */
     private QyMsg ERR_MSG_Decode(QyMsg qyMsg, SocketChannel socketChannel) throws Exception {
-
-        if (DataType.JSON.equals(qyMsg.getDataType())) {
-            return qyMsg.setDataMap(JSON.parseObject(IoUtil.readBytes(socketChannel, qyMsg.getBodySize()), DataMap.class));
-        } else if (DataType.OBJECT.equals(qyMsg.getDataType())) {
-            return qyMsg.setDataMap(IoUtil.deserializationObj(IoUtil.readBytes(socketChannel, qyMsg.getBodySize()), DataMap.class));
-        } else {
-            return streamDeal(qyMsg, socketChannel);
-        }
+        return NORM_MSG_Decode(qyMsg, socketChannel);
     }
 
-    /**
-     * 流类型数据处理
-     *
-     * @author YYJ
-     */
-    private QyMsg streamDeal(QyMsg qyMsg, SocketChannel socketChannel) throws IOException {
-        qyMsg.putMsg(IoUtil.readBytes(socketChannel, qyMsg.getBodySize()));
-        return qyMsg;
-    }
 
     public IllegalQyMsgException handleException(Exception e, String s, byte[] array) {
         return new IllegalQyMsgException(e, "{} arr:{} str:{}", s, Arrays.toString(array), new String(array, StandardCharsets.UTF_8));

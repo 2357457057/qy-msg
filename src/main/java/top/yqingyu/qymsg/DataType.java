@@ -11,6 +11,7 @@ package top.yqingyu.qymsg;
  */
 public enum DataType {
     OBJECT,    //序列化的对象
+    KRYO5,    //序列化的对象
     JSON,
     STRING,
     STREAM,

@@ -7,6 +7,7 @@ import top.yqingyu.common.utils.ArrayUtil;
 import top.yqingyu.common.utils.IoUtil;
 import top.yqingyu.common.utils.RadixUtil;
 import top.yqingyu.common.utils.RandomStringUtil;
+import top.yqingyu.qymsg.serialize.KryoSerializer;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -49,10 +50,10 @@ public class MsgEncoder {
         byte[] from = msgFrom.getBytes(StandardCharsets.UTF_8);
         System.arraycopy(from, 0, header, MSG_FROM_IDX_START, from.length);
         switch (qyMsg.getMsgType()) {
+            case NORM_MSG -> NORM_MSG_Encode(header, qyMsg, list);
             case AC -> AC_Encode(header, qyMsg, list);
             case HEART_BEAT -> HEART_BEAT_Encode(header, list);
-            case ERR_MSG -> ERR_MSG_Encode(header, qyMsg, list);
-            default -> NORM_MSG_Encode(header, qyMsg, list);
+            default -> ERR_MSG_Encode(header, qyMsg, list);
         }
         //将信息长度与信息组合
         return list;
@@ -98,6 +99,8 @@ public class MsgEncoder {
 
         byte[] body;
         switch (qyMsg.getDataType()) {
+            case KRYO5 -> body = KryoSerializer.INSTANCE.encode(qyMsg.Data());
+
             case OBJECT -> body = IoUtil.objToSerializBytes(qyMsg.Data());
 
             case STRING -> body = MsgHelper.gainMsg(qyMsg).getBytes(StandardCharsets.UTF_8);
@@ -118,16 +121,7 @@ public class MsgEncoder {
      * @param list   返回的消息集合
      */
     private void ERR_MSG_Encode(byte[] header, QyMsg qyMsg, ArrayList<byte[]> list) throws IOException {
-        byte[] body;
-        if (DataType.JSON.equals(qyMsg.getDataType())) {
-            body = JSON.toJSONBytes(qyMsg.Data());
-        } else if (DataType.OBJECT.equals(qyMsg.getDataType())) {
-            body = IoUtil.objToSerializBytes(qyMsg.Data());
-        } else {
-            header[DATA_TYPE_IDX] = MsgTransfer.DATA_TYPE_2_CHAR(DataType.STRING);
-            body = MsgHelper.gainMsg(qyMsg).getBytes(StandardCharsets.UTF_8);
-        }
-        OUT_OF_LENGTH_MSG_Encode(body, header, list);
+        NORM_MSG_Encode(header, qyMsg, list);
     }
 
     /**

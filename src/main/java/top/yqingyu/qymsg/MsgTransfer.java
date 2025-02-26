@@ -77,6 +77,7 @@ public class MsgTransfer {
         {
             DATA_TYPE_2_CHAR = new Hashtable<>();
             DATA_TYPE_2_CHAR.put(DataType.OBJECT, "=".getBytes(StandardCharsets.UTF_8)[0]);
+            DATA_TYPE_2_CHAR.put(DataType.KRYO5, "!".getBytes(StandardCharsets.UTF_8)[0]);
             DATA_TYPE_2_CHAR.put(DataType.JSON, "%".getBytes(StandardCharsets.UTF_8)[0]);
             DATA_TYPE_2_CHAR.put(DataType.STRING, "&".getBytes(StandardCharsets.UTF_8)[0]);
             DATA_TYPE_2_CHAR.put(DataType.STREAM, "#".getBytes(StandardCharsets.UTF_8)[0]);
