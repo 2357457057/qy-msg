@@ -224,7 +224,6 @@ public class BytesDecodeQyMsg extends ByteToMessageDecoder {
     private QyMsg getMsgFromByteBuf(ByteBuf in, ConcurrentQyMap<String, Object> ctxData, QyMsg qyMsg, DataType dataType) throws IOException, ClassNotFoundException {
         byte[] bytes = readBytes2(in, ctxData);
         if (bytes == null) return null;
-        log.warn("bytes.length:{}", bytes.length);
         switch (dataType) {
             case KRYO5 -> {
                 return qyMsg.setDataMap(KryoSerializer.INSTANCE.decode(bytes));
